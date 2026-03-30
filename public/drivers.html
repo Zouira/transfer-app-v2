@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gestion Chauffeurs - Transfer Marrakech</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #d35400;
+            --primary-light: #e67e22;
+            --secondary: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --dark: #2c3e50;
+            --gray: #7f8c8d;
+            --light: #f5f7fa;
+            --gradient: linear-gradient(135deg, #d35400 0%, #e67e22 100%);
+            --shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--light);
+            min-height: 100vh;
+            padding-bottom: 100px;
+        }
+
+        .header {
+            background: var(--gradient);
+            color: white;
+            padding: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 600px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+        }
+
+        .header h1 { font-size: 20px; font-weight: 600; }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title i { color: var(--primary); }
+
+        /* Driver Card */
+        .driver-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .driver-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--gradient);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .driver-info {
+            flex: 1;
+        }
+
+        .driver-name {
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--dark);
+            margin-bottom: 5px;
+        }
+
+        .driver-phone {
+            color: var(--gray);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .driver-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-available { background: var(--secondary); }
+        .status-busy { background: var(--danger); }
+
+        .driver-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-action {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .btn-edit { background: #e3f2fd; color: #1976d2; }
+        .btn-delete { background: #ffebee; color: #c62828; }
+
+        /* Form */
+        .form-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--dark);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e8e8e8;
+            border-radius: 14px;
+            font-family: inherit;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(211, 84, 0, 0.1);
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 18px;
+            background: var(--gradient);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(211, 84, 0, 0.3);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray);
+        }
+
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            color: var(--gray);
+            text-decoration: none;
+            font-size: 12px;
+            padding: 5px 15px;
+        }
+
+        .nav-item i { font-size: 20px; }
+        .nav-item.active { color: var(--primary); }
+
+        .fab {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--gradient);
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(211, 84, 0, 0.4);
+            z-index: 99;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            align-items: flex-end;
+        }
+
+        .modal.show { display: flex; }
+
+        .modal-content {
+            background: white;
+            border-radius: 24px 24px 0 0;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .modal-header {
+            padding: 25px 25px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body { padding: 25px; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <a href="/dashboard.html" class="back-btn">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <h1><i class="fas fa-users"></i> Chauffeurs</h1>
+            <div style="width: 40px;"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Add Driver Form -->
+        <div class="form-card">
+            <div class="section-title">
+                <i class="fas fa-user-plus"></i>
+                Ajouter un chauffeur
+            </div>
+            
+            <form id="addDriverForm">
+                <div class="form-group">
+                    <label class="form-label">Nom complet *</label>
+                    <input type="text" class="form-control" id="driverName" placeholder="ex: Ahmed Benali" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Numéro WhatsApp *</label>
+                    <input type="tel" class="form-control" id="driverPhone" placeholder="ex: +212 6XX XXX XXX" required>
+                </div>
+                
+                <button type="submit" class="btn-primary" id="submitBtn">
+                    <i class="fas fa-plus"></i>
+                    Ajouter le chauffeur
+                </button>
+            </form>
+        </div>
+
+        <!-- Drivers List -->
+        <div class="section-title">
+            <i class="fas fa-list"></i>
+            Liste des chauffeurs
+        </div>
+        
+        <div id="driversList">
+            <!-- Chargement... -->
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="/dashboard.html" class="nav-item">
+            <i class="fas fa-home"></i>
+            <span>Accueil</span>
+        </a>
+        <a href="/index.html" class="nav-item">
+            <i class="fas fa-plus-circle"></i>
+            <span>Nouveau</span>
+        </a>
+        <a href="/drivers.html" class="nav-item active">
+            <i class="fas fa-users"></i>
+            <span>Chauffeurs</span>
+        </a>
+        <a href="#" class="nav-item" onclick="logout(); return false;">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Déconnexion</span>
+        </a>
+    </nav>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login.html';
+        }
+
+        // Load drivers
+        async function loadDrivers() {
+            try {
+                const res = await fetch('/api/drivers', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                const drivers = await res.json();
+                renderDrivers(drivers);
+            } catch (err) {
+                document.getElementById('driversList').innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>Erreur de chargement</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderDrivers(drivers) {
+            const container = document.getElementById('driversList');
+            
+            if (drivers.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users"></i>
+                        <p>Aucun chauffeur</p>
+                        <p style="font-size: 14px; margin-top: 10px;">Ajoutez votre premier chauffeur ci-dessus</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = drivers.map(driver => `
+                <div class="driver-card">
+                    <div class="driver-avatar">${driver.name.charAt(0)}</div>
+                    <div class="driver-info">
+                        <div class="driver-name">${driver.name}</div>
+                        <div class="driver-phone">
+                            <i class="fas fa-phone"></i> ${driver.phone}
+                        </div>
+                        <div class="driver-status">
+                            <span class="status-dot ${driver.is_busy ? 'status-busy' : 'status-available'}"></span>
+                            <span>${driver.is_busy ? 'En course' : 'Disponible'}</span>
+                        </div>
+                    </div>
+                    <div class="driver-actions">
+                        <a href="tel:${driver.phone}" class="btn-action btn-edit" title="Appeler">
+                            <i class="fas fa-phone"></i>
+                        </a>
+                        <button class="btn-action btn-delete" onclick="deleteDriver(${driver.id})" title="Supprimer">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Add driver
+        document.getElementById('addDriverForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ajout...';
+            
+            const data = {
+                name: document.getElementById('driverName').value,
+                phone: document.getElementById('driverPhone').value
+            };
+            
+            try {
+                const res = await fetch('/api/drivers', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (res.ok) {
+                    document.getElementById('addDriverForm').reset();
+                    loadDrivers();
+                    alert('Chauffeur ajouté avec succès !');
+                } else {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Erreur lors de l\'ajout');
+                }
+            } catch (err) {
+                alert('Erreur: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus"></i> Ajouter le chauffeur';
+            }
+        });
+
+        // Delete driver
+        async function deleteDriver(id) {
+            if (!confirm('Supprimer ce chauffeur ?')) return;
+            
+            try {
+                const res = await fetch(`/api/drivers/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (res.ok) {
+                    loadDrivers();
+                } else {
+                    alert('Erreur lors de la suppression');
+                }
+            } catch (err) {
+                alert('Erreur réseau');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login.html';
+        }
+
+        // Load on page load
+        loadDrivers();
+    </script>
+</body>
+</html>

@@ -205,6 +205,19 @@ class Database {
     });
   }
 
+  deleteDriver(id) {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `DELETE FROM drivers WHERE id = ?`,
+        [id],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  }
+
   incrementDriverTransfers(driverId) {
     return new Promise((resolve, reject) => {
       this.db.run(

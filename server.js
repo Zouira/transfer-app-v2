@@ -140,6 +140,17 @@ app.put('/api/drivers/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Supprimer chauffeur
+app.delete('/api/drivers/:id', authenticateToken, async (req, res) => {
+  try {
+    await db.deleteDriver(req.params.id);
+    await db.logAudit(req.user.id, 'DELETE_DRIVER', 'driver', req.params.id, {});
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ========== ROUTES TRANSFERTS ==========
 
 // Créer un transfert
