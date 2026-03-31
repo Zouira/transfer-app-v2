@@ -603,6 +603,13 @@
                 
                 console.log('Drivers response status:', res.status);
                 
+                // Si token invalide, rediriger vers login
+                if (res.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
                 if (!res.ok) {
                     const errorText = await res.text();
                     console.error('API Error:', res.status, errorText);
