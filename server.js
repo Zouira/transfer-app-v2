@@ -735,6 +735,24 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Route de debug - lister les fichiers statiques
+app.get('/api/debug/files', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const publicDir = path.join(__dirname, 'public');
+  
+  try {
+    const files = fs.readdirSync(publicDir);
+    res.json({ 
+      success: true, 
+      directory: publicDir,
+      files: files
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Serveur démarré sur http://0.0.0.0:${PORT}`);
   console.log(`📊 Dashboard: http://0.0.0.0:${PORT}/dashboard.html`);
