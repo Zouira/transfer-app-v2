@@ -577,6 +577,8 @@
 
     <script>
         const token = localStorage.getItem('token');
+        console.log('Token exists:', !!token);
+        
         if (!token) {
             window.location.href = '/login.html';
         }
