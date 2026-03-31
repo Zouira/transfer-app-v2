@@ -118,12 +118,27 @@ app.get('/api/drivers/active', authenticateToken, async (req, res) => {
   }
 });
 
-// Créer chauffeur
+// Créer chauffeur (ou mettre à jour si le numéro existe déjà)
 app.post('/api/drivers', authenticateToken, async (req, res) => {
   try {
-    const driver = await db.createDriver(req.body);
-    await db.logAudit(req.user.id, 'CREATE_DRIVER', 'driver', driver.id, { name: driver.name });
-    res.json({ success: true, driver });
+    const { name, phone, carName, email, language } = req.body;
+    
+    // Vérifier si un chauffeur avec ce numéro existe déjà
+    const existingDriver = await db.getAllDrivers().then(drivers => 
+      drivers.find(d => d.phone === phone)
+    );
+    
+    if (existingDriver) {
+      // Mettre à jour le chauffeur existant
+      await db.updateDriver(existingDriver.id, { name, phone, carName, email, language });
+      await db.logAudit(req.user.id, 'UPDATE_DRIVER', 'driver', existingDriver.id, { name });
+      res.json({ success: true, driver: { ...existingDriver, name, phone, carName, email, language }, updated: true });
+    } else {
+      // Créer un nouveau chauffeur
+      const driver = await db.createDriver(req.body);
+      await db.logAudit(req.user.id, 'CREATE_DRIVER', 'driver', driver.id, { name: driver.name });
+      res.json({ success: true, driver });
+    }
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
