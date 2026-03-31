@@ -442,6 +442,13 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
+                // Si token invalide, rediriger vers login
+                if (res.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
                 const data = await res.json();
                 drivers = data.drivers || data; // Handle both formats
                 renderDrivers(drivers);
