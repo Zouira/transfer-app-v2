@@ -613,9 +613,10 @@
 
         function updateStats() {
             const today = new Date().toDateString();
-            const todayTransfers = transfers.filter(t => 
-                new Date(t.pickup_time).toDateString() === today
-            );
+            const todayTransfers = transfers.filter(t => {
+                const pickupTime = t.pickupDateTime || t.pickup_time;
+                return pickupTime && new Date(pickupTime).toDateString() === today;
+            });
             
             document.getElementById('statToday').textContent = todayTransfers.length;
             document.getElementById('statConfirmed').textContent = 
@@ -632,19 +633,24 @@
             
             if (currentFilter === 'today') {
                 const today = new Date().toDateString();
-                filtered = transfers.filter(t => 
-                    new Date(t.pickup_time).toDateString() === today
-                );
+                filtered = transfers.filter(t => {
+                    const pickupTime = t.pickupDateTime || t.pickup_time;
+                    return pickupTime && new Date(pickupTime).toDateString() === today;
+                });
             } else if (currentFilter === 'pending') {
                 filtered = transfers.filter(t => t.status === 'pending');
             } else if (currentFilter === 'alert') {
                 filtered = transfers.filter(t => t.alert_sent);
             }
             
-            filtered.sort((a, b) => new Date(a.pickup_time) - new Date(b.pickup_time));
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.pickupDateTime || a.pickup_time);
+                const dateB = new Date(b.pickupDateTime || b.pickup_time);
+                return dateA - dateB;
+            });
             
             list.innerHTML = filtered.map(t => {
-                const date = new Date(t.pickup_time);
+                const date = new Date(t.pickupDateTime || t.pickup_time);
                 const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
                 const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
                 
@@ -655,20 +661,25 @@
                 else if (t.status === 'cancelled') statusClass = 'status-cancelled';
                 if (t.alert_sent) statusClass = 'status-alert';
                 
+                const clientName = t.clientName || t.client_name || 'Client inconnu';
+                const pickupLocation = t.pickupLocation || t.pickup_location || 'Départ inconnu';
+                const destination = t.destination || 'Destination inconnue';
+                const driverName = t.driverName || t.driver_name;
+                
                 return `
                     <div class="transfer-card" onclick="viewTransfer(${t.id})">
                         <div class="transfer-header">
-                            <div class="transfer-client">${t.client_name}</div>
+                            <div class="transfer-client">${clientName}</div>
                             <div class="transfer-status ${statusClass}">${t.status}</div>
                         </div>
                         <div class="transfer-route">
                             <i class="fas fa-map-marker-alt"></i>
-                            ${t.pickup_location} <i class="fas fa-arrow-right"></i> ${t.destination}
+                            ${pickupLocation} <i class="fas fa-arrow-right"></i> ${destination}
                         </div>
                         <div class="transfer-footer">
                             <div class="transfer-driver">
-                                <div class="driver-avatar">${t.driver_name ? t.driver_name.charAt(0) : '?'}</div>
-                                <span>${t.driver_name || 'Non assigné'}</span>
+                                <div class="driver-avatar">${driverName ? driverName.charAt(0) : '?'}</div>
+                                <span>${driverName || 'Non assigné'}</span>
                             </div>
                             <div class="transfer-time">
                                 <i class="fas fa-clock"></i> ${dateStr} à ${timeStr}
