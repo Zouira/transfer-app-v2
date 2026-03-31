@@ -445,7 +445,8 @@
                 const data = await res.json();
                 drivers = data.drivers || data; // Handle both formats
                 renderDrivers(drivers);
-                document.getElementById('driverCount').textContent = drivers.length;
+                const countEl = document.getElementById('driverCount');
+                if (countEl) countEl.textContent = drivers.length;
             } catch (err) {
                 document.getElementById('driversList').innerHTML = `
                     <div class="empty-state">
@@ -570,7 +571,8 @@
             document.getElementById('driverCar').value = driver.carName || '';
             
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-edit"></i> Modifier le chauffeur';
-            document.getElementById('submitText').textContent = 'Enregistrer les modifications';
+            const submitTextEl = document.getElementById('submitText');
+            if (submitTextEl) submitTextEl.textContent = 'Enregistrer les modifications';
             document.getElementById('cancelBtn').style.display = 'flex';
             
             // Scroll to form
@@ -582,7 +584,8 @@
             document.getElementById('driverForm').reset();
             document.getElementById('driverId').value = '';
             document.getElementById('formTitle').innerHTML = '<i class="fas fa-user-plus"></i> Ajouter un chauffeur';
-            document.getElementById('submitText').textContent = 'Ajouter le chauffeur';
+            const submitTextEl = document.getElementById('submitText');
+            if (submitTextEl) submitTextEl.textContent = 'Ajouter le chauffeur';
             document.getElementById('cancelBtn').style.display = 'none';
         }
 
