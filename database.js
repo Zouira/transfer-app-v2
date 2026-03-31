@@ -40,6 +40,11 @@ class Database {
       )
     `);
 
+    // Migration: Add carName column if not exists (for existing databases)
+    this.db.run(`ALTER TABLE drivers ADD COLUMN carName TEXT`).catch(() => {});
+    // Migration: Add isBusy column if not exists
+    this.db.run(`ALTER TABLE drivers ADD COLUMN isBusy INTEGER DEFAULT 0`).catch(() => {});
+
     // Table des clients
     this.db.run(`
       CREATE TABLE IF NOT EXISTS clients (
