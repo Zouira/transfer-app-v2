@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Détail du Transfert - Marrakech</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #d35400;
+            --primary-light: #e67e22;
+            --secondary: #27ae60;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --info: #3498db;
+            --dark: #2c3e50;
+            --gray: #7f8c8d;
+            --light: #f5f7fa;
+            --white: #ffffff;
+            --gradient: linear-gradient(135deg, #d35400 0%, #e67e22 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--light);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+
+        .header {
+            background: var(--gradient);
+            color: white;
+            padding: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 600px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .status-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin: 0 auto 15px;
+        }
+
+        .status-icon.pending { background: #fff3cd; color: #f39c12; }
+        .status-icon.confirmed { background: #d4edda; color: #27ae60; }
+        .status-icon.in_progress { background: #cce5ff; color: #3498db; }
+        .status-icon.completed { background: #d4edda; color: #27ae60; }
+        .status-icon.cancelled { background: #f8d7da; color: #e74c3c; }
+
+        .status-text {
+            font-size: 18px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .info-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title i {
+            color: var(--primary);
+        }
+
+        .info-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            padding: 15px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: var(--light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-size: 18px;
+        }
+
+        .info-content {
+            flex: 1;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--dark);
+            margin-top: 3px;
+        }
+
+        .driver-card {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: var(--light);
+            border-radius: 16px;
+            margin-top: 10px;
+        }
+
+        .driver-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--gradient);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .driver-info h4 {
+            font-size: 16px;
+            color: var(--dark);
+        }
+
+        .driver-info p {
+            font-size: 14px;
+            color: var(--gray);
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border-radius: 12px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--gradient);
+            color: white;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--light);
+            color: var(--dark);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .loading i {
+            font-size: 48px;
+            color: var(--primary);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            text-align: center;
+            padding: 60px 20px;
+            color: #e74c3c;
+        }
+
+        .error i {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 20px;
+            color: var(--gray);
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item i {
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <button class="back-btn" onclick="history.back()">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <h1>Détail du Transfert</h1>
+        </div>
+    </div>
+
+    <div class="container" id="container">
+        <div class="loading">
+            <i class="fas fa-spinner"></i>
+            <p>Chargement...</p>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="/dashboard.html" class="nav-item">
+            <i class="fas fa-home"></i>
+            <span>Accueil</span>
+        </a>
+        <a href="/index.html" class="nav-item">
+            <i class="fas fa-plus-circle"></i>
+            <span>Nouveau</span>
+        </a>
+        <a href="/drivers.html" class="nav-item">
+            <i class="fas fa-users"></i>
+            <span>Chauffeurs</span>
+        </a>
+    </nav>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login.html';
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const transferId = urlParams.get('id');
+
+        if (!transferId) {
+            document.getElementById('container').innerHTML = `
+                <div class="error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <h3>ID du transfert manquant</h3>
+                </div>
+            `;
+        } else {
+            loadTransfer();
+        }
+
+        async function loadTransfer() {
+            try {
+                const res = await fetch(`/api/transfers/${transferId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!res.ok) {
+                    throw new Error('Transfert non trouvé');
+                }
+
+                const data = await res.json();
+                const t = data.transfer || data;
+
+                renderTransfer(t);
+            } catch (err) {
+                document.getElementById('container').innerHTML = `
+                    <div class="error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <h3>${err.message}</h3>
+                        <button onclick="history.back()" class="btn btn-secondary" style="margin-top: 20px;">
+                            <i class="fas fa-arrow-left"></i> Retour
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function renderTransfer(t) {
+            const date = new Date(t.pickupDateTime || t.pickup_time);
+            const statusIcons = {
+                'pending': 'fa-clock',
+                'confirmed': 'fa-check-circle',
+                'in_progress': 'fa-car',
+                'completed': 'fa-check-double',
+                'cancelled': 'fa-times-circle'
+            };
+
+            const statusTexts = {
+                'pending': 'En attente',
+                'confirmed': 'Confirmé',
+                'in_progress': 'En cours',
+                'completed': 'Terminé',
+                'cancelled': 'Annulé'
+            };
+
+            document.getElementById('container').innerHTML = `
+                <div class="status-card">
+                    <div class="status-icon ${t.status}">
+                        <i class="fas ${statusIcons[t.status] || 'fa-info'}"></i>
+                    </div>
+                    <div class="status-text">${statusTexts[t.status] || t.status}</div>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-title">
+                        <i class="fas fa-user"></i>
+                        Informations Client
+                    </div>
+                    <div class="info-row">
+                        <div class="info-icon"><i class="fas fa-user"></i></div>
+                        <div class="info-content">
+                            <div class="info-label">Nom</div>
+                            <div class="info-value">${t.clientName || t.client_name || 'Non spécifié'}</div>
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-icon"><i class="fas fa-phone"></i></div>
+                        <div class="info-content">
+                            <div class="info-label">Téléphone</div>
+                            <div class="info-value">${t.clientPhone || t.client_phone || 'Non spécifié'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-title">
+                        <i class="fas fa-route"></i>
+                        Détails du Trajet
+                    </div>
+                    <div class="info-row">
+                        <div class="info-icon"><i class="fas fa-map-marker-alt"></i></div>
+                        <div class="info-content">
+                            <div class="info-label">Départ</div>
+                            <div class="info-value">${t.pickupLocation || t.pickup_location || 'Non spécifié'}</div>
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-icon"><i class="fas fa-flag-checkered"></i></div>
+                        <div class="info-content">
+                            <div class="info-label">Destination</div>
+                            <div class="info-value">${t.destination || 'Non spécifié'}</div>
+                        </div>
+                    </div>
+                    <div class="info-row">
+                        <div class="info-icon"><i class="fas fa-calendar"></i></div>
+                        <div class="info-content">
+                            <div class="info-label">Date & Heure</div>
+                            <div class="info-value">${date.toLocaleString('fr-FR')}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-title">
+                        <i class="fas fa-id-card"></i>
+                        Chauffeur Assigné
+                    </div>
+                    <div class="driver-card">
+                        <div class="driver-avatar">
+                            ${(t.driverName || t.driver_name || '?').charAt(0)}
+                        </div>
+                        <div class="driver-info">
+                            <h4>${t.driverName || t.driver_name || 'Non assigné'}</h4>
+                            <p><i class="fas fa-phone"></i> ${t.driverPhone || t.driver_phone || 'N/A'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="window.location.href='/dashboard.html'">
+                        <i class="fas fa-arrow-left"></i> Retour
+                    </button>
+                    ${t.status !== 'cancelled' ? `
+                        <button class="btn btn-danger" onclick="cancelTransfer(${t.id})">
+                            <i class="fas fa-times"></i> Annuler
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        async function cancelTransfer(id) {
+            if (!confirm('Annuler ce transfert ?')) return;
+
+            try {
+                const res = await fetch(`/api/transfers/${id}/cancel`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ reason: 'Annulé par admin' })
+                });
+
+                if (res.ok) {
+                    alert('Transfert annulé');
+                    loadTransfer();
+                } else {
+                    const err = await res.json();
+                    alert('Erreur: ' + err.error);
+                }
+            } catch (err) {
+                alert('Erreur réseau');
+            }
+        }
+    </script>
+</body>
+</html>
