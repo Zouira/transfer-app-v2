@@ -170,6 +170,34 @@ class Database {
     });
   }
 
+  // Récupérer tous les utilisateurs
+  getAllUsers() {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT id, username, role, fullName, createdAt FROM users ORDER BY id`,
+        [],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+  }
+
+  // Supprimer un utilisateur
+  deleteUser(id) {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `DELETE FROM users WHERE id = ?`,
+        [id],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  }
+
   // ========== DRIVERS ==========
   createDriver(driver) {
     return new Promise((resolve, reject) => {

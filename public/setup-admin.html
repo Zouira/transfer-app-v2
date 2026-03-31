@@ -48,10 +48,13 @@
             margin-top: 20px;
             padding: 15px;
             border-radius: 10px;
+            text-align: left;
+            font-size: 12px;
         }
         .success { background: #d4edda; color: #155724; }
         .error { background: #f8d7da; color: #721c24; }
         a { color: #d35400; }
+        .debug { background: #e3f2fd; color: #1565c0; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -63,6 +66,7 @@
         <input type="password" id="password" placeholder="Mot de passe (défaut: admin123)" value="admin123">
         
         <button onclick="createAdmin()">Créer l'admin</button>
+        <button onclick="checkUsers()" style="background: #3498db; margin-top: 10px;">Vérifier les utilisateurs</button>
         
         <div id="message"></div>
         
@@ -77,6 +81,8 @@
             const password = document.getElementById('password').value || 'admin123';
             const msgDiv = document.getElementById('message');
             
+            msgDiv.innerHTML = '<div class="message debug">Création en cours...</div>';
+            
             try {
                 const res = await fetch('/api/setup-admin', {
                     method: 'POST',
@@ -90,14 +96,16 @@
                     msgDiv.innerHTML = `
                         <div class="message success">
                             ✅ Admin créé avec succès !<br>
-                            <strong>Login: ${username}</strong><br>
-                            <strong>Password: ${password}</strong>
+                            <strong>Login:</strong> ${data.user.username}<br>
+                            <strong>Password:</strong> ${data.password}<br>
+                            <strong>ID:</strong> ${data.user.id}
                         </div>
                     `;
                 } else {
                     msgDiv.innerHTML = `
                         <div class="message error">
-                            ❌ Erreur: ${data.error}
+                            ❌ Erreur: ${data.error}<br>
+                            <pre>${data.stack || ''}</pre>
                         </div>
                     `;
                 }
@@ -107,6 +115,28 @@
                         ❌ Erreur réseau: ${err.message}
                     </div>
                 `;
+            }
+        }
+        
+        async function checkUsers() {
+            const msgDiv = document.getElementById('message');
+            
+            try {
+                const res = await fetch('/api/debug/users');
+                const data = await res.json();
+                
+                if (data.success) {
+                    msgDiv.innerHTML = `
+                        <div class="message debug">
+                            <strong>${data.count} utilisateur(s) trouvé(s):</strong><br>
+                            ${data.users.map(u => `• ${u.username} (${u.role})`).join('<br>')}
+                        </div>
+                    `;
+                } else {
+                    msgDiv.innerHTML = `<div class="message error">Erreur: ${data.error}</div>`;
+                }
+            } catch (err) {
+                msgDiv.innerHTML = `<div class="message error">Erreur: ${err.message}</div>`;
             }
         }
     </script>
