@@ -596,6 +596,14 @@
                 const res = await fetch('/api/transfers', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                
+                // Si token invalide, rediriger vers login
+                if (res.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/login.html';
+                    return;
+                }
+                
                 const data = await res.json();
                 
                 // Handle both formats: array or {transfers: array}
