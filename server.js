@@ -726,6 +726,9 @@ app.get('/api/track/:token', async (req, res) => {
   }
 });
 
+// ========== EMERGENCY ROUTES (before static files) ==========
+require('./emergency-routes')(app, db, bcrypt);
+
 // ========== STATIC FILES ==========
 
 app.use(express.static(path.join(__dirname, 'public')));
