@@ -85,6 +85,27 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
   res.json({ success: true, user: req.user });
 });
 
+// Route temporaire pour créer un admin (setup initial)
+app.post('/api/setup-admin', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const hashedPassword = bcrypt.hashSync(password || 'admin123', 10);
+    
+    const user = await db.createUser({
+      username: username || 'admin',
+      password: hashedPassword,
+      role: 'admin',
+      fullName: 'Administrateur'
+    });
+    
+    console.log('✅ Admin créé via setup:', username || 'admin');
+    res.json({ success: true, message: 'Admin créé', user: { id: user.id, username: user.username } });
+  } catch (error) {
+    console.error('Erreur setup admin:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Créer utilisateur (admin only)
 app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
