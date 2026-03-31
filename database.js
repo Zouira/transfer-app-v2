@@ -21,7 +21,13 @@ class Database {
         fullName TEXT,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
       )
-    `);
+    `, (err) => {
+      if (err) console.error('Error creating users table:', err.message);
+      else {
+        // Créer admin par défaut si aucun utilisateur
+        this.createDefaultAdmin();
+      }
+    });
 
     // Table des chauffeurs (profils)
     this.db.run(`
@@ -689,6 +695,27 @@ class Database {
         }
       );
     });
+  }
+
+  // ========== DEFAULT ADMIN ==========
+  async createDefaultAdmin() {
+    try {
+      // Vérifier si un admin existe déjà
+      const admin = await this.getUserByUsername('admin');
+      if (!admin) {
+        // Créer admin par défaut
+        const hashedPassword = bcrypt.hashSync('admin123', 10);
+        await this.createUser({
+          username: 'admin',
+          password: hashedPassword,
+          role: 'admin',
+          fullName: 'Administrateur'
+        });
+        console.log('✅ Admin par défaut créé: admin / admin123');
+      }
+    } catch (err) {
+      console.error('Erreur création admin:', err.message);
+    }
   }
 
   // ========== BACKUP ==========
