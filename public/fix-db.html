@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 FIX Base de données</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h1 { color: #d35400; }
+        button {
+            width: 100%;
+            padding: 20px;
+            margin: 10px 0;
+            font-size: 18px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        .btn-fix { background: #e74c3c; color: white; }
+        .btn-admin { background: #27ae60; color: white; }
+        .btn-verify { background: #3498db; color: white; }
+        .log {
+            background: #2c3e50;
+            color: #2ecc71;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: monospace;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            min-height: 100px;
+        }
+        .error { color: #e74c3c; }
+        .success { color: #27ae60; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔧 Réparation Base de Données</h1>
+        <p>Clique sur les boutons dans l'ordre :</p>
+        
+        <button class="btn-fix" onclick="fixDatabase()">
+            1️⃣ Créer la table users
+        </button>
+        
+        <button class="btn-admin" onclick="createAdmin()">
+            2️⃣ Créer l'admin
+        </button>
+        
+        <button class="btn-verify" onclick="verifyLogin()">
+            3️⃣ Vérifier le login
+        </button>
+        
+        <div class="log" id="log">Clique sur le premier bouton...</div>
+        
+        <p style="margin-top: 30px; text-align: center;">
+            <a href="/login.html" style="color: #d35400; font-size: 18px;">
+                → Aller à la page de connexion
+            </a>
+        </p>
+    </div>
+
+    <script>
+        function log(msg, isError = false) {
+            const logDiv = document.getElementById('log');
+            const color = isError ? 'error' : 'success';
+            logDiv.innerHTML += `\n[${new Date().toLocaleTimeString()}] \u003cspan class="${color}">${msg}\u003c/span>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function fixDatabase() {
+            log('Création de la table users...');
+            try {
+                const res = await fetch('/api/fix-database', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    log('✅ ' + data.message);
+                    if (data.tables) log('Tables: ' + data.tables.join(', '));
+                } else {
+                    log('❌ Erreur: ' + data.error, true);
+                }
+            } catch (err) {
+                log('❌ Erreur réseau: ' + err.message, true);
+            }
+        }
+
+        async function createAdmin() {
+            log('Création de l\'admin...');
+            try {
+                const res = await fetch('/api/setup-admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    log('✅ Admin créé !');
+                    log('Login: ' + data.user.username);
+                    log('Password: ' + data.password);
+                } else {
+                    log('❌ Erreur: ' + data.error, true);
+                }
+            } catch (err) {
+                log('❌ Erreur réseau: ' + err.message, true);
+            }
+        }
+
+        async function verifyLogin() {
+            log('Test du login...');
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    log('✅ Login réussi !');
+                    log('Token reçu: ' + data.token.substring(0, 20) + '...');
+                } else {
+                    log('❌ Login échoué: ' + data.error, true);
+                }
+            } catch (err) {
+                log('❌ Erreur réseau: ' + err.message, true);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -153,6 +153,49 @@ app.get('/api/debug/users', async (req, res) => {
   }
 });
 
+// Route pour réparer la base de données (créer les tables manquantes)
+app.post('/api/fix-database', async (req, res) => {
+  try {
+    console.log('🔧 Réparation de la base de données demandée...');
+    
+    // Forcer la création de la table users
+    await new Promise((resolve, reject) => {
+      db.db.run(`
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          role TEXT DEFAULT 'operator',
+          fullName TEXT,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+    
+    // Vérifier les tables existantes
+    const tables = await new Promise((resolve, reject) => {
+      db.db.all("SELECT name FROM sqlite_master WHERE type='table'", (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows.map(r => r.name));
+      });
+    });
+    
+    console.log('✅ Tables existantes:', tables);
+    
+    res.json({ 
+      success: true, 
+      message: 'Base de données réparée',
+      tables: tables
+    });
+  } catch (error) {
+    console.error('❌ Erreur réparation DB:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Créer utilisateur (admin only)
 app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
