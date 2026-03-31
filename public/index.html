@@ -615,6 +615,21 @@
         function renderDrivers() {
             const container = document.getElementById('driverList');
             
+            console.log('Rendering drivers:', drivers);
+            
+            if (!drivers || drivers.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 30px; color: #7f8c8d;">
+                        <i class="fas fa-user-slash" style="font-size: 32px; margin-bottom: 10px; display: block;"></i>
+                        Aucun chauffeur trouvé<br>
+                        <a href="/drivers.html" style="color: var(--primary); text-decoration: none; margin-top: 10px; display: inline-block;">
+                            <i class="fas fa-plus"></i> Ajouter un chauffeur
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+            
             container.innerHTML = drivers.map(driver => `
                 <div class="driver-option" onclick="selectDriver(${driver.id})" data-driver="${driver.id}">
                     <div class="driver-avatar">${driver.name.charAt(0)}</div>
