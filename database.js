@@ -154,7 +154,7 @@ class Database {
   getAllDrivers() {
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT * FROM drivers ORDER BY name`,
+        `SELECT *, isBusy as is_busy FROM drivers ORDER BY name`,
         [],
         (err, rows) => {
           if (err) reject(err);
@@ -695,5 +695,8 @@ class Database {
     });
   }
 }
+
+module.exports = Database;
+atabase;
 
 module.exports = Database;

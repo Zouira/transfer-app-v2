@@ -88,9 +88,13 @@
             padding: 20px;
             margin-bottom: 15px;
             box-shadow: var(--shadow);
+        }
+
+        .driver-header {
             display: flex;
             align-items: center;
             gap: 15px;
+            margin-bottom: 15px;
         }
 
         .driver-avatar {
@@ -107,9 +111,7 @@
             flex-shrink: 0;
         }
 
-        .driver-info {
-            flex: 1;
-        }
+        .driver-info { flex: 1; }
 
         .driver-name {
             font-weight: 600;
@@ -118,7 +120,7 @@
             margin-bottom: 5px;
         }
 
-        .driver-phone {
+        .driver-car {
             color: var(--gray);
             font-size: 14px;
             display: flex;
@@ -126,41 +128,56 @@
             gap: 5px;
         }
 
-        .driver-status {
+        .driver-phone {
+            color: var(--gray);
+            font-size: 14px;
             display: flex;
             align-items: center;
             gap: 5px;
-            font-size: 12px;
             margin-top: 5px;
         }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
+        .driver-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: #e8f5e9;
+            color: var(--secondary);
+            margin-top: 5px;
         }
 
-        .status-available { background: var(--secondary); }
-        .status-busy { background: var(--danger); }
+        .driver-status.busy {
+            background: #ffebee;
+            color: var(--danger);
+        }
 
         .driver-actions {
             display: flex;
             gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #f0f0f0;
         }
 
         .btn-action {
-            width: 40px;
-            height: 40px;
+            flex: 1;
+            padding: 10px;
             border-radius: 10px;
             border: none;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            gap: 5px;
+            font-size: 14px;
+            font-weight: 500;
         }
 
         .btn-edit { background: #e3f2fd; color: #1976d2; }
+        .btn-call { background: #e8f5e9; color: var(--secondary); }
         .btn-delete { background: #ffebee; color: #c62828; }
 
         /* Form */
@@ -222,6 +239,23 @@
             cursor: not-allowed;
         }
 
+        .btn-secondary {
+            width: 100%;
+            padding: 18px;
+            background: var(--gray);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
         /* Empty State */
         .empty-state {
             text-align: center;
@@ -263,22 +297,6 @@
         .nav-item i { font-size: 20px; }
         .nav-item.active { color: var(--primary); }
 
-        .fab {
-            position: fixed;
-            bottom: 90px;
-            right: 20px;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: var(--gradient);
-            color: white;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(211, 84, 0, 0.4);
-            z-index: 99;
-        }
-
         /* Modal */
         .modal {
             display: none;
@@ -317,6 +335,14 @@
         }
 
         .modal-body { padding: 25px; }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: var(--gray);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -332,14 +358,16 @@
     </header>
 
     <div class="container">
-        <!-- Add Driver Form -->
+        <!-- Add/Edit Driver Form -->
         <div class="form-card">
-            <div class="section-title">
+            <div class="section-title" id="formTitle">
                 <i class="fas fa-user-plus"></i>
                 Ajouter un chauffeur
             </div>
             
-            <form id="addDriverForm">
+            <form id="driverForm">
+                <input type="hidden" id="driverId" value="">
+                
                 <div class="form-group">
                     <label class="form-label">Nom complet *</label>
                     <input type="text" class="form-control" id="driverName" placeholder="ex: Ahmed Benali" required>
@@ -350,9 +378,19 @@
                     <input type="tel" class="form-control" id="driverPhone" placeholder="ex: +212 6XX XXX XXX" required>
                 </div>
                 
+                <div class="form-group">
+                    <label class="form-label">Nom de la voiture *</label>
+                    <input type="text" class="form-control" id="driverCar" placeholder="ex: Mercedes Viano, Dacia Logan..." required>
+                </div>
+                
                 <button type="submit" class="btn-primary" id="submitBtn">
                     <i class="fas fa-plus"></i>
-                    Ajouter le chauffeur
+                    <span id="submitText">Ajouter le chauffeur</span>
+                </button>
+                
+                <button type="button" class="btn-secondary" id="cancelBtn" style="display: none;" onclick="resetForm()">
+                    <i class="fas fa-times"></i>
+                    Annuler
                 </button>
             </form>
         </div>
@@ -361,6 +399,7 @@
         <div class="section-title">
             <i class="fas fa-list"></i>
             Liste des chauffeurs
+            <span id="driverCount" style="margin-left: auto; background: var(--primary); color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px;">0</span>
         </div>
         
         <div id="driversList">
@@ -394,6 +433,8 @@
             window.location.href = '/login.html';
         }
 
+        let drivers = [];
+
         // Load drivers
         async function loadDrivers() {
             try {
@@ -401,8 +442,10 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
-                const drivers = await res.json();
+                const data = await res.json();
+                drivers = data.drivers || data; // Handle both formats
                 renderDrivers(drivers);
+                document.getElementById('driverCount').textContent = drivers.length;
             } catch (err) {
                 document.getElementById('driversList').innerHTML = `
                     <div class="empty-state">
@@ -429,20 +472,28 @@
             
             container.innerHTML = drivers.map(driver => `
                 <div class="driver-card">
-                    <div class="driver-avatar">${driver.name.charAt(0)}</div>
-                    <div class="driver-info">
-                        <div class="driver-name">${driver.name}</div>
-                        <div class="driver-phone">
-                            <i class="fas fa-phone"></i> ${driver.phone}
-                        </div>
-                        <div class="driver-status">
-                            <span class="status-dot ${driver.is_busy ? 'status-busy' : 'status-available'}"></span>
-                            <span>${driver.is_busy ? 'En course' : 'Disponible'}</span>
+                    <div class="driver-header">
+                        <div class="driver-avatar">${driver.name.charAt(0)}</div>
+                        <div class="driver-info">
+                            <div class="driver-name">${driver.name}</div>
+                            <div class="driver-car">
+                                <i class="fas fa-car"></i> ${driver.carName || 'Non spécifié'}
+                            </div>
+                            <div class="driver-phone">
+                                <i class="fas fa-phone"></i> ${driver.phone}
+                            </div>
+                            <div class="driver-status ${driver.is_busy ? 'busy' : ''}">
+                                <i class="fas fa-circle" style="font-size: 8px;"></i>
+                                ${driver.is_busy ? 'En course' : 'Disponible'}
+                            </div>
                         </div>
                     </div>
                     <div class="driver-actions">
-                        <a href="tel:${driver.phone}" class="btn-action btn-edit" title="Appeler">
-                            <i class="fas fa-phone"></i>
+                        <button class="btn-action btn-edit" onclick="editDriver(${driver.id})" title="Modifier">
+                            <i class="fas fa-edit"></i> Modifier
+                        </button>
+                        <a href="tel:${driver.phone}" class="btn-action btn-call" title="Appeler" style="text-decoration: none;">
+                            <i class="fas fa-phone"></i> Appeler
                         </a>
                         <button class="btn-action btn-delete" onclick="deleteDriver(${driver.id})" title="Supprimer">
                             <i class="fas fa-trash"></i>
@@ -452,48 +503,93 @@
             `).join('');
         }
 
-        // Add driver
-        document.getElementById('addDriverForm').addEventListener('submit', async (e) => {
+        // Add or Update driver
+        document.getElementById('driverForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const btn = document.getElementById('submitBtn');
+            const originalText = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ajout...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enregistrement...';
             
+            const driverId = document.getElementById('driverId').value;
             const data = {
                 name: document.getElementById('driverName').value,
-                phone: document.getElementById('driverPhone').value
+                phone: document.getElementById('driverPhone').value,
+                carName: document.getElementById('driverCar').value
             };
             
             try {
-                const res = await fetch('/api/drivers', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(data)
-                });
+                let res;
+                if (driverId) {
+                    // Update existing
+                    res = await fetch(`/api/drivers/${driverId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    // Create new
+                    res = await fetch('/api/drivers', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(data)
+                    });
+                }
                 
                 if (res.ok) {
-                    document.getElementById('addDriverForm').reset();
+                    resetForm();
                     loadDrivers();
-                    alert('Chauffeur ajouté avec succès !');
+                    alert(driverId ? 'Chauffeur modifié avec succès !' : 'Chauffeur ajouté avec succès !');
                 } else {
                     const err = await res.json();
-                    throw new Error(err.error || 'Erreur lors de l\'ajout');
+                    throw new Error(err.error || 'Erreur lors de l\'enregistrement');
                 }
             } catch (err) {
                 alert('Erreur: ' + err.message);
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-plus"></i> Ajouter le chauffeur';
+                btn.innerHTML = originalText;
             }
         });
 
+        // Edit driver - populate form
+        function editDriver(id) {
+            const driver = drivers.find(d => d.id === id);
+            if (!driver) return;
+            
+            document.getElementById('driverId').value = driver.id;
+            document.getElementById('driverName').value = driver.name;
+            document.getElementById('driverPhone').value = driver.phone;
+            document.getElementById('driverCar').value = driver.carName || '';
+            
+            document.getElementById('formTitle').innerHTML = '<i class="fas fa-edit"></i> Modifier le chauffeur';
+            document.getElementById('submitText').textContent = 'Enregistrer les modifications';
+            document.getElementById('cancelBtn').style.display = 'flex';
+            
+            // Scroll to form
+            document.querySelector('.form-card').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Reset form
+        function resetForm() {
+            document.getElementById('driverForm').reset();
+            document.getElementById('driverId').value = '';
+            document.getElementById('formTitle').innerHTML = '<i class="fas fa-user-plus"></i> Ajouter un chauffeur';
+            document.getElementById('submitText').textContent = 'Ajouter le chauffeur';
+            document.getElementById('cancelBtn').style.display = 'none';
+        }
+
         // Delete driver
         async function deleteDriver(id) {
-            if (!confirm('Supprimer ce chauffeur ?')) return;
+            const driver = drivers.find(d => d.id === id);
+            if (!confirm(`Supprimer ${driver.name} ?\n\nCette action est irréversible.`)) return;
             
             try {
                 const res = await fetch(`/api/drivers/${id}`, {
@@ -503,6 +599,7 @@
                 
                 if (res.ok) {
                     loadDrivers();
+                    alert('Chauffeur supprimé');
                 } else {
                     alert('Erreur lors de la suppression');
                 }
