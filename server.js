@@ -156,26 +156,46 @@ app.delete('/api/drivers/:id', authenticateToken, async (req, res) => {
 // Créer un transfert
 app.post('/api/transfers', authenticateToken, async (req, res) => {
   try {
-    const { clientName, clientPhone, pickupDateTime, pickupLocation, destination, driverId, language } = req.body;
+    const { 
+      clientName, client_name,
+      clientPhone, client_phone,
+      pickupDateTime, pickup_time,
+      pickupLocation, pickup_location,
+      destination,
+      driverId, driver_id,
+      language,
+      notes
+    } = req.body;
+    
+    // Support both camelCase and snake_case
+    const actualClientName = clientName || client_name;
+    const actualClientPhone = clientPhone || client_phone;
+    const actualPickupTime = pickupDateTime || pickup_time;
+    const actualPickupLocation = pickupLocation || pickup_location;
+    const actualDriverId = driverId || driver_id;
+    
+    if (!actualDriverId) {
+      return res.status(400).json({ success: false, error: 'ID du chauffeur requis' });
+    }
     
     // Récupérer info chauffeur
-    const driver = await db.getDriverById(driverId);
+    const driver = await db.getDriverById(actualDriverId);
     if (!driver) {
       return res.status(400).json({ success: false, error: 'Chauffeur non trouvé' });
     }
 
     // Créer ou récupérer client
     let client = null;
-    if (clientPhone) {
-      client = await db.getOrCreateClient({ name: clientName, phone: clientPhone });
+    if (actualClientPhone) {
+      client = await db.getOrCreateClient({ name: actualClientName, phone: actualClientPhone });
     }
 
     const transfer = await db.createTransfer({
       clientId: client?.id,
-      clientName,
-      clientPhone,
-      pickupDateTime,
-      pickupLocation,
+      clientName: actualClientName,
+      clientPhone: actualClientPhone,
+      pickupDateTime: actualPickupTime,
+      pickupLocation: actualPickupLocation,
       destination,
       driverId: driver.id,
       driverName: driver.name,
