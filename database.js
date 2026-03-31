@@ -41,9 +41,13 @@ class Database {
     `);
 
     // Migration: Add carName column if not exists (for existing databases)
-    this.db.run(`ALTER TABLE drivers ADD COLUMN carName TEXT`).catch(() => {});
+    this.db.run(`ALTER TABLE drivers ADD COLUMN carName TEXT`, (err) => {
+      if (err) console.log('Migration carName:', err.message);
+    });
     // Migration: Add isBusy column if not exists
-    this.db.run(`ALTER TABLE drivers ADD COLUMN isBusy INTEGER DEFAULT 0`).catch(() => {});
+    this.db.run(`ALTER TABLE drivers ADD COLUMN isBusy INTEGER DEFAULT 0`, (err) => {
+      if (err) console.log('Migration isBusy:', err.message);
+    });
 
     // Table des clients
     this.db.run(`
