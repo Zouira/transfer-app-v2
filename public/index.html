@@ -600,6 +600,8 @@
                 });
                 
                 drivers = await res.json();
+                // Handle both formats: array or {drivers: array}
+                if (drivers.drivers) drivers = drivers.drivers;
                 renderDrivers();
             } catch (err) {
                 document.getElementById('driverList').innerHTML = `
