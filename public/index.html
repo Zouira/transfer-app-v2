@@ -599,14 +599,30 @@
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 
+                console.log('Drivers response status:', res.status);
+                
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    console.error('API Error:', res.status, errorText);
+                    throw new Error(`HTTP ${res.status}: ${errorText}`);
+                }
+                
                 drivers = await res.json();
+                console.log('Drivers data:', drivers);
+                
                 // Handle both formats: array or {drivers: array}
                 if (drivers.drivers) drivers = drivers.drivers;
                 renderDrivers();
             } catch (err) {
+                console.error('Load drivers error:', err);
                 document.getElementById('driverList').innerHTML = `
                     <div style="text-align: center; padding: 20px; color: #e74c3c;">
-                        <i class="fas fa-exclamation-circle"></i> Erreur de chargement
+                        <i class="fas fa-exclamation-circle" style="font-size: 24px; margin-bottom: 10px; display: block;"></i>
+                        Erreur de chargement<br>
+                        <small style="color: #7f8c8d;">${err.message}</small><br>
+                        <button onclick="loadDrivers()" style="margin-top: 10px; padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            <i class="fas fa-redo"></i> Réessayer
+                        </button>
                     </div>
                 `;
             }
