@@ -584,8 +584,13 @@ app.get('/api/track/:token', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}/dashboard.html`);
-  console.log(`🔐 Login: http://localhost:${PORT}/login.html`);
+// Healthcheck for Railway
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Serveur démarré sur http://0.0.0.0:${PORT}`);
+  console.log(`📊 Dashboard: http://0.0.0.0:${PORT}/dashboard.html`);
+  console.log(`🔐 Login: http://0.0.0.0:${PORT}/login.html`);
 });

@@ -29,9 +29,11 @@ class Database {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         phone TEXT UNIQUE NOT NULL,
+        carName TEXT,
         email TEXT,
         language TEXT DEFAULT 'fr',
         status TEXT DEFAULT 'active',
+        isBusy INTEGER DEFAULT 0,
         rating REAL DEFAULT 5.0,
         totalTransfers INTEGER DEFAULT 0,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -141,8 +143,8 @@ class Database {
   createDriver(driver) {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT INTO drivers (name, phone, email, language) VALUES (?, ?, ?, ?)`,
-        [driver.name, driver.phone, driver.email, driver.language || 'fr'],
+        `INSERT INTO drivers (name, phone, carName, email, language) VALUES (?, ?, ?, ?, ?)`,
+        [driver.name, driver.phone, driver.carName, driver.email, driver.language || 'fr'],
         function(err) {
           if (err) reject(err);
           else resolve({ id: this.lastID, ...driver });
@@ -695,8 +697,5 @@ class Database {
     });
   }
 }
-
-module.exports = Database;
-atabase;
 
 module.exports = Database;
