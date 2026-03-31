@@ -89,17 +89,29 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
 app.post('/api/setup-admin', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const hashedPassword = bcrypt.hashSync(password || 'admin123', 10);
+    const actualUsername = username || 'admin';
+    const actualPassword = password || 'admin123';
+    const hashedPassword = bcrypt.hashSync(actualPassword, 10);
     
-    const user = await db.createUser({
-      username: username || 'admin',
-      password: hashedPassword,
-      role: 'admin',
-      fullName: 'Administrateur'
-    });
+    // Vérifier si l'utilisateur existe déjà
+    const existingUser = await db.getUserByUsername(actualUsername);
     
-    console.log('✅ Admin créé via setup:', username || 'admin');
-    res.json({ success: true, message: 'Admin créé', user: { id: user.id, username: user.username } });
+    if (existingUser) {
+      // Mettre à jour le mot de passe
+      await db.updateUser(existingUser.id, { password: hashedPassword });
+      console.log('✅ Admin mis à jour via setup:', actualUsername);
+      res.json({ success: true, message: 'Admin mis à jour', updated: true, user: { id: existingUser.id, username: actualUsername } });
+    } else {
+      // Créer un nouvel admin
+      const user = await db.createUser({
+        username: actualUsername,
+        password: hashedPassword,
+        role: 'admin',
+        fullName: 'Administrateur'
+      });
+      console.log('✅ Admin créé via setup:', actualUsername);
+      res.json({ success: true, message: 'Admin créé', user: { id: user.id, username: user.username } });
+    }
   } catch (error) {
     console.error('Erreur setup admin:', error.message);
     res.status(500).json({ success: false, error: error.message });

@@ -154,6 +154,22 @@ class Database {
     return bcrypt.compare(password, user.password);
   }
 
+  // Mettre à jour un utilisateur
+  updateUser(id, updates) {
+    return new Promise((resolve, reject) => {
+      const fields = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+      const values = [...Object.values(updates), id];
+      this.db.run(
+        `UPDATE users SET ${fields} WHERE id = ?`,
+        values,
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  }
+
   // ========== DRIVERS ==========
   createDriver(driver) {
     return new Promise((resolve, reject) => {
