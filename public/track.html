@@ -630,6 +630,40 @@
             initMap(transfer, driver);
         }
 
+        // Lieux courants de Marrakech — résolution instantanée sans API
+        const MARRAKECH_LIEUX = {
+            'aéroport': [31.6068, -8.0383], 'aeroport': [31.6068, -8.0383],
+            'airport': [31.6068, -8.0383], 'ménara': [31.6068, -8.0383],
+            'gare': [31.6286, -8.0096], 'gare marrakech': [31.6286, -8.0096],
+            'train': [31.6286, -8.0096], 'ctn': [31.6286, -8.0096],
+            'médina': [31.6312, -7.9838], 'medina': [31.6312, -7.9838],
+            'jemaa': [31.6258, -7.9892], 'jemaa el fna': [31.6258, -7.9892],
+            'place': [31.6258, -7.9892],
+            'guéliz': [31.6355, -8.0121], 'gueliz': [31.6355, -8.0121],
+            'hivernage': [31.6237, -8.0079],
+            'palmeraie': [31.6554, -7.9378],
+            'majorelle': [31.6422, -8.0039],
+            'menara mall': [31.6149, -8.0326], 'menara': [31.6068, -8.0383],
+            'atlas': [31.5, -7.85],
+            'marrakech': [31.6295, -7.9811]
+        };
+
+        async function geocodeLocation(query) {
+            if (!query) return null;
+            const lower = query.toLowerCase().trim();
+            // 1. Chercher dans le dictionnaire local
+            for (const [key, coords] of Object.entries(MARRAKECH_LIEUX)) {
+                if (lower.includes(key)) return coords;
+            }
+            // 2. Proxy serveur → Nominatim (pas de CORS)
+            try {
+                const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                if (data.lat && data.lon) return [data.lat, data.lon];
+            } catch(e) {}
+            return null;
+        }
+
         async function initMap(transfer, driver) {
             map = L.map('map').setView([31.6295, -7.9811], 12);
 
@@ -639,18 +673,6 @@
 
             const pickupText = transfer.pickupLocation || transfer.pickup_location || '';
             const destText = transfer.destination || '';
-
-            async function geocode(query) {
-                try {
-                    const q = encodeURIComponent(query + ', Marrakech, Maroc');
-                    const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, {
-                        headers: { 'Accept-Language': 'fr' }
-                    });
-                    const data = await res.json();
-                    if (data && data.length > 0) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-                } catch(e) {}
-                return null;
-            }
 
             const pickupIcon = L.divIcon({
                 className: '',
@@ -670,8 +692,8 @@
 
             // Geocode both locations in parallel
             const [pickupCoords, destCoords] = await Promise.all([
-                geocode(pickupText),
-                geocode(destText)
+                geocodeLocation(pickupText),
+                geocodeLocation(destText)
             ]);
 
             const bounds = [];
