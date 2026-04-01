@@ -429,18 +429,23 @@
                         const resultsDiv = document.getElementById('lookupResults');
                         resultsDiv.innerHTML = `
                             <h3 style="font-size: 16px; margin-bottom: 15px; color: var(--dark);">Vos transferts :</h3>
-                            ${data.transfers.map(t => `
-                                <a href="/track.html?token=${t.tracking_token}" 
+                            ${data.transfers.map(t => {
+                                const token = t.trackingToken || t.tracking_token;
+                                const name = t.clientName || t.client_name || '—';
+                                const pickup = t.pickupLocation || t.pickup_location || '—';
+                                const dt = new Date(t.pickupDateTime || t.pickup_time);
+                                return `
+                                <a href="/track.html?token=${token}"
                                     style="display: block; background: #f8f9fa; padding: 15px; border-radius: 12px; margin-bottom: 10px; text-decoration: none; color: inherit; border: 2px solid transparent; transition: all 0.3s;"
-                                    onmouseover="this.style.borderColor='var(--primary)'" 
+                                    onmouseover="this.style.borderColor='var(--primary)'"
                                     onmouseout="this.style.borderColor='transparent'">
-                                    <div style="font-weight: 600; color: var(--dark); margin-bottom: 5px;">${t.client_name}</div>
-                                    <div style="font-size: 13px; color: var(--gray); margin-bottom: 5px;">${t.pickup_location} → ${t.destination}</div>
+                                    <div style="font-weight: 600; color: var(--dark); margin-bottom: 5px;">${name}</div>
+                                    <div style="font-size: 13px; color: var(--gray); margin-bottom: 5px;">${pickup} → ${t.destination || '—'}</div>
                                     <div style="font-size: 12px; color: var(--primary);">
-                                        <i class="fas fa-clock"></i> ${new Date(t.pickup_time).toLocaleString('fr-FR')}
+                                        <i class="fas fa-clock"></i> ${dt.toLocaleString('fr-FR')}
                                     </div>
-                                </a>
-                            `).join('')}
+                                </a>`;
+                            }).join('')}
                         `;
                     } else {
                         document.getElementById('lookupResults').innerHTML = `
@@ -461,7 +466,7 @@
 
         async function loadTrackingData() {
             try {
-                const res = await fetch(`/api/transfers/track/${token}`);
+                const res = await fetch(`/api/track/${token}`);
                 
                 if (!res.ok) {
                     throw new Error('Transfer not found');
@@ -501,7 +506,7 @@
                 statusSubtitle = 'Merci d\'avoir voyagé avec nous';
             }
             
-            const pickupDate = new Date(transfer.pickup_time);
+            const pickupDate = new Date(transfer.pickupDateTime || transfer.pickup_time);
             const now = new Date();
             const diffMinutes = Math.floor((pickupDate - now) / 60000);
             
@@ -532,7 +537,7 @@
                             <div class="timeline-dot"></div>
                             <div class="timeline-content">
                                 <div class="timeline-title">Réservation confirmée</div>
-                                <div class="timeline-time">${new Date(transfer.created_at).toLocaleString('fr-FR')}</div>
+                                <div class="timeline-time">${new Date(transfer.createdAt || transfer.created_at).toLocaleString('fr-FR')}</div>
                             </div>
                         </div>
                         
@@ -604,7 +609,7 @@
                     </div>
                     <div class="trip-row">
                         <span class="trip-label">Départ</span>
-                        <span class="trip-value">${transfer.pickup_location}</span>
+                        <span class="trip-value">${transfer.pickupLocation || transfer.pickup_location}</span>
                     </div>
                     <div class="trip-row">
                         <span class="trip-label">Destination</span>
