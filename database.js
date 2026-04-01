@@ -406,6 +406,23 @@ class Database {
     });
   }
 
+  getTodayTransfersByDriverPhone(phone) {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT * FROM transfers
+         WHERE driverPhone = ?
+         AND date(pickupDateTime) = date('now')
+         AND status != 'cancelled'
+         ORDER BY pickupDateTime ASC`,
+        [phone],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+  }
+
   getCompletedTransferByClientPhone(phone) {
     return new Promise((resolve, reject) => {
       this.db.get(
