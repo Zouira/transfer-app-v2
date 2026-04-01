@@ -42,6 +42,11 @@ class Database {
       )
     `);
 
+    // Migration: Add clientRating column to transfers
+    this.db.run(`ALTER TABLE transfers ADD COLUMN clientRating INTEGER DEFAULT NULL`, (err) => {
+      if (err) console.log('Migration clientRating:', err.message);
+    });
+
     // Migration: Add carName column if not exists (for existing databases)
     this.db.run(`ALTER TABLE drivers ADD COLUMN carName TEXT`, (err) => {
       if (err) console.log('Migration carName:', err.message);
@@ -396,6 +401,32 @@ class Database {
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
+        }
+      );
+    });
+  }
+
+  getCompletedTransferByClientPhone(phone) {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT * FROM transfers WHERE clientPhone = ? AND status = 'completed' AND clientRating IS NULL ORDER BY pickupDateTime DESC LIMIT 1`,
+        [phone],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+  }
+
+  updateTransferRating(id, rating) {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `UPDATE transfers SET clientRating = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
+        [rating, id],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
         }
       );
     });
