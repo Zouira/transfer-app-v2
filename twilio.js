@@ -9,7 +9,7 @@ class TwilioService {
     // Numéros des responsables pour les alertes
     this.alertNumbers = [
       'whatsapp:+212661948925',  // Ami
-      'whatsapp:+212666666280'   // Collègue
+      'whatsapp:+212616646122'   // Collègue
     ];
   }
 
