@@ -412,13 +412,57 @@
 
         .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; }
         .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        /* Boutons d'action GO / FIN */
+        .transfer-actions {
+            display: flex;
+            gap: 8px;
+            padding: 10px 15px;
+            border-top: 1px solid #f0f0f0;
+        }
+        .action-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-start { background: #e8f5e9; color: #27ae60; }
+        .btn-start:hover { background: #27ae60; color: white; }
+        .btn-complete { background: #e3f2fd; color: #1976d2; }
+        .btn-complete:hover { background: #1976d2; color: white; }
+
+        /* Statuts colorés */
+        .status-in-progress { background: #e3f2fd; color: #1976d2; }
+        .status-completed { background: #e8f5e9; color: #27ae60; }
+
+        /* Indicateur de refresh live */
+        .live-dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: #27ae60;
+            border-radius: 50%;
+            margin-left: 6px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
     </style>
 </head>
 <body>
     <!-- Header -->
     <header class="header">
         <div class="header-content">
-            <h1><i class="fas fa-car"></i> Transfer Marrakech</h1>
+            <h1><i class="fas fa-car"></i> Transfer Marrakech<span class="live-dot" title="Mise à jour automatique"></span></h1>
             <div class="header-actions">
                 <button class="btn-icon" onclick="refreshData()">
                     <i class="fas fa-sync-alt"></i>
@@ -627,12 +671,12 @@
             });
             
             document.getElementById('statToday').textContent = todayTransfers.length;
-            document.getElementById('statConfirmed').textContent = 
-                transfers.filter(t => t.status === 'confirmed').length;
-            document.getElementById('statPending').textContent = 
+            document.getElementById('statConfirmed').textContent =
+                transfers.filter(t => ['confirmed','confirmed_by_call','in_progress'].includes(t.status)).length;
+            document.getElementById('statPending').textContent =
                 transfers.filter(t => t.status === 'pending').length;
-            document.getElementById('statAlert').textContent = 
-                transfers.filter(t => t.alert_sent).length;
+            document.getElementById('statAlert').textContent =
+                transfers.filter(t => t.alertSent || t.alert_sent).length;
         }
 
         function renderTransfers() {
@@ -657,28 +701,55 @@
                 return dateA - dateB;
             });
             
+            const statusLabels = {
+                pending: '⏳ En attente',
+                assigned: '📋 Assigné',
+                confirmed: '✅ Confirmé',
+                confirmed_by_call: '📞 Confirmé (appel)',
+                in_progress: '🚗 En cours',
+                completed: '🏁 Terminé',
+                cancelled: '❌ Annulé'
+            };
+
             list.innerHTML = filtered.map(t => {
                 const date = new Date(t.pickupDateTime || t.pickup_time);
                 const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
                 const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-                
+
                 let statusClass = 'status-pending';
-                if (t.status === 'confirmed') statusClass = 'status-confirmed';
+                if (['confirmed','confirmed_by_call'].includes(t.status)) statusClass = 'status-confirmed';
                 else if (t.status === 'in_progress') statusClass = 'status-in-progress';
                 else if (t.status === 'completed') statusClass = 'status-completed';
                 else if (t.status === 'cancelled') statusClass = 'status-cancelled';
-                if (t.alert_sent) statusClass = 'status-alert';
-                
+                if (t.alertSent || t.alert_sent) statusClass = 'status-alert';
+
                 const clientName = t.clientName || t.client_name || 'Client inconnu';
                 const pickupLocation = t.pickupLocation || t.pickup_location || 'Départ inconnu';
                 const destination = t.destination || 'Destination inconnue';
                 const driverName = t.driverName || t.driver_name;
-                
+                const statusLabel = statusLabels[t.status] || t.status;
+                const rating = t.clientRating ? '⭐'.repeat(t.clientRating) : '';
+
+                // Boutons d'action selon le statut
+                let actionButtons = '';
+                if (!['completed','cancelled'].includes(t.status)) {
+                    if (t.status !== 'in_progress') {
+                        actionButtons += `<button class="action-btn btn-start" onclick="event.stopPropagation(); triggerStart(${t.id})" title="Démarrer la mission">
+                            <i class="fas fa-play"></i> GO
+                        </button>`;
+                    }
+                    if (t.status === 'in_progress') {
+                        actionButtons += `<button class="action-btn btn-complete" onclick="event.stopPropagation(); triggerComplete(${t.id})" title="Terminer la mission">
+                            <i class="fas fa-flag-checkered"></i> FIN
+                        </button>`;
+                    }
+                }
+
                 return `
                     <div class="transfer-card" onclick="viewTransfer(${t.id})">
                         <div class="transfer-header">
                             <div class="transfer-client">${clientName}</div>
-                            <div class="transfer-status ${statusClass}">${t.status}</div>
+                            <div class="transfer-status ${statusClass}">${statusLabel}</div>
                         </div>
                         <div class="transfer-route">
                             <i class="fas fa-map-marker-alt"></i>
@@ -691,8 +762,10 @@
                             </div>
                             <div class="transfer-time">
                                 <i class="fas fa-clock"></i> ${dateStr} à ${timeStr}
+                                ${rating ? `<span style="margin-left:8px">${rating}</span>` : ''}
                             </div>
                         </div>
+                        ${actionButtons ? `<div class="transfer-actions">${actionButtons}</div>` : ''}
                     </div>
                 `;
             }).join('') || '<div style="padding: 40px; text-align: center; color: #7f8c8d;">Aucun transfert</div>';
@@ -769,6 +842,42 @@
 
         function viewTransfer(id) {
             window.location.href = `/transfer-detail.html?id=${id}`;
+        }
+
+        async function triggerStart(id) {
+            if (!confirm('Démarrer la mission ? Le client sera notifié par WhatsApp.')) return;
+            try {
+                const res = await fetch(`/api/transfers/${id}/start`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await loadDashboardData();
+                } else {
+                    alert('Erreur : ' + data.error);
+                }
+            } catch (err) {
+                alert('Erreur réseau');
+            }
+        }
+
+        async function triggerComplete(id) {
+            if (!confirm('Terminer la mission ? Le client recevra une demande d\'avis.')) return;
+            try {
+                const res = await fetch(`/api/transfers/${id}/complete`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    await loadDashboardData();
+                } else {
+                    alert('Erreur : ' + data.error);
+                }
+            } catch (err) {
+                alert('Erreur réseau');
+            }
         }
 
         function refreshData() {
