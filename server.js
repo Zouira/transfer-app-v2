@@ -349,7 +349,29 @@ app.post('/api/transfers', authenticateToken, async (req, res) => {
     };
 
     twilio.sendWhatsApp(driver.phone, messages[language || driver.language || 'fr'])
-      .catch(err => console.error('WhatsApp notification (non-bloquant):', err.message));
+      .catch(err => console.error('WhatsApp chauffeur (non-bloquant):', err.message));
+
+    // Notifier le client : confirmation + nom/téléphone chauffeur
+    if (actualClientPhone) {
+      const clientConfirm = {
+        fr: `✅ Votre transfert est confirmé !\n\n` +
+            `🚗 Chauffeur : ${driver.name}\n` +
+            `📞 Tél. chauffeur : ${driver.phone}\n` +
+            `🕐 Date/Heure : ${actualPickupTime}\n` +
+            `📍 Départ : ${actualPickupLocation}\n` +
+            `🏁 Destination : ${destination}\n\n` +
+            `Nous restons à votre disposition.`,
+        ar: `✅ تم تأكيد نقلك !\n\n` +
+            `🚗 السائق : ${driver.name}\n` +
+            `📞 هاتف السائق : ${driver.phone}\n` +
+            `🕐 التاريخ/الوقت : ${actualPickupTime}\n` +
+            `📍 الانطلاق : ${actualPickupLocation}\n` +
+            `🏁 الوجهة : ${destination}\n\n` +
+            `نحن في خدمتكم.`
+      };
+      twilio.sendWhatsApp(actualClientPhone, clientConfirm[language || driver.language || 'fr'])
+        .catch(err => console.error('WhatsApp client confirmation (non-bloquant):', err.message));
+    }
 
     // Incrémenter compteur chauffeur
     await db.incrementDriverTransfers(driver.id);
@@ -482,6 +504,52 @@ app.put('/api/transfers/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Démarrer une mission (in_progress) — déclenché manuellement ou par WhatsApp "GO"
+app.post('/api/transfers/:id/start', authenticateToken, async (req, res) => {
+  try {
+    const transfer = await db.getTransferById(req.params.id);
+    if (!transfer) return res.status(404).json({ success: false, error: 'Transfert non trouvé' });
+    if (transfer.status === 'completed' || transfer.status === 'cancelled') {
+      return res.status(400).json({ success: false, error: `Impossible — statut : ${transfer.status}` });
+    }
+    await db.updateTransferStatus(req.params.id, 'in_progress');
+    if (transfer.clientPhone) {
+      const msg = `🚗 Votre chauffeur ${transfer.driverName} est en route !\n\n` +
+                  `📍 Il arrive bientôt à : ${transfer.pickupLocation}\n` +
+                  `📞 Son numéro : ${transfer.driverPhone}`;
+      twilio.sendWhatsApp(transfer.clientPhone, msg)
+        .catch(err => console.error('WhatsApp start client:', err.message));
+    }
+    await db.logAudit(req.user.id, 'START_TRANSFER', 'transfer', req.params.id, {});
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Terminer une mission (completed) — déclenché manuellement ou par WhatsApp "FIN"
+app.post('/api/transfers/:id/complete', authenticateToken, async (req, res) => {
+  try {
+    const transfer = await db.getTransferById(req.params.id);
+    if (!transfer) return res.status(404).json({ success: false, error: 'Transfert non trouvé' });
+    if (transfer.status === 'cancelled') {
+      return res.status(400).json({ success: false, error: 'Transfert annulé' });
+    }
+    await db.updateTransferStatus(req.params.id, 'completed');
+    if (transfer.clientPhone) {
+      const msg = `✅ Votre transfert est terminé !\n\n` +
+                  `Merci de votre confiance. Comment s'est passée votre course ?\n\n` +
+                  `⭐ Répondez avec une note de 1 à 5`;
+      twilio.sendWhatsApp(transfer.clientPhone, msg)
+        .catch(err => console.error('WhatsApp complete client:', err.message));
+    }
+    await db.logAudit(req.user.id, 'COMPLETE_TRANSFER', 'transfer', req.params.id, {});
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Annuler un transfert
 app.post('/api/transfers/:id/cancel', authenticateToken, async (req, res) => {
   try {
@@ -603,21 +671,58 @@ app.post('/webhook/whatsapp', async (req, res) => {
   try {
     const { From, Body } = req.body;
     const phone = From.replace('whatsapp:', '');
-    
-    if (Body.toLowerCase().includes('ok')) {
-      const transfer = await db.getTransferByDriverPhone(phone);
-      if (transfer && transfer.status === 'pending') {
-        await db.updateTransferStatus(transfer.id, 'confirmed');
-        
-        const confirmMessages = {
-          fr: '✅ Transfert confirmé. Merci!',
-          ar: '✅ تم تأكيد النقل. شكراً!'
-        };
-        
-        await twilio.sendWhatsApp(phone, confirmMessages[transfer.language || 'fr']);
+    const bodyLower = (Body || '').toLowerCase().trim();
+    const bodyClean = (Body || '').trim();
+
+    // --- Messages du CHAUFFEUR ---
+    const driverTransfer = await db.getTransferByDriverPhone(phone);
+    if (driverTransfer) {
+      const lang = driverTransfer.language || 'fr';
+
+      if (bodyLower.includes('ok') && !['in_progress','completed','cancelled'].includes(driverTransfer.status)) {
+        // Confirmation de réception
+        await db.updateTransferStatus(driverTransfer.id, 'confirmed');
+        await twilio.sendWhatsApp(phone, lang === 'ar' ? '✅ تم تأكيد النقل. شكراً!' : '✅ Transfert confirmé. Merci !');
+
+      } else if (bodyLower === 'go' || bodyLower === 'parti' || bodyLower === 'départ' || bodyLower === 'depart') {
+        // Mission démarrée
+        await db.updateTransferStatus(driverTransfer.id, 'in_progress');
+        await twilio.sendWhatsApp(phone, lang === 'ar' ? '🚗 تم تسجيل انطلاقك. بالتوفيق !' : '🚗 Mission démarrée. Bon voyage !');
+        if (driverTransfer.clientPhone) {
+          const clientMsg = `🚗 Votre chauffeur ${driverTransfer.driverName} est en route !\n📞 ${driverTransfer.driverPhone}`;
+          twilio.sendWhatsApp(driverTransfer.clientPhone, clientMsg)
+            .catch(err => console.error('WhatsApp GO client:', err.message));
+        }
+
+      } else if (bodyLower === 'fin' || bodyLower === 'arrivé' || bodyLower === 'arrive' || bodyLower === 'terminé' || bodyLower === 'termine') {
+        // Mission terminée
+        await db.updateTransferStatus(driverTransfer.id, 'completed');
+        await twilio.sendWhatsApp(phone, lang === 'ar' ? '✅ تم تسجيل نهاية المهمة. شكراً !' : '✅ Mission terminée. Merci !');
+        if (driverTransfer.clientPhone) {
+          const clientMsg = `✅ Votre transfert est terminé !\n\nMerci de votre confiance.\n⭐ Notez votre expérience en répondant avec 1, 2, 3, 4 ou 5`;
+          twilio.sendWhatsApp(driverTransfer.clientPhone, clientMsg)
+            .catch(err => console.error('WhatsApp FIN client:', err.message));
+        }
+      }
+
+      res.send('<Response></Response>');
+      return;
+    }
+
+    // --- Note du CLIENT (1-5) ---
+    if (/^[1-5]$/.test(bodyClean)) {
+      const clientTransfer = await db.getCompletedTransferByClientPhone(phone);
+      if (clientTransfer) {
+        const rating = parseInt(bodyClean);
+        await db.updateTransferRating(clientTransfer.id, rating);
+        await twilio.sendWhatsApp(phone, `⭐ Merci pour votre note de ${rating}/5 ! À très bientôt.`);
+        const stars = '⭐'.repeat(rating);
+        twilio.sendAlert(clientTransfer,
+          `${stars} Avis client : ${rating}/5\nChauffeur : ${clientTransfer.driverName}\nTrajet : ${clientTransfer.pickupLocation} → ${clientTransfer.destination}`)
+          .catch(err => console.error('Alert rating:', err.message));
       }
     }
-    
+
     res.send('<Response></Response>');
   } catch (error) {
     console.error('Webhook error:', error);
