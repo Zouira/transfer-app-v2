@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
+const https = require('https');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Database = require('./database');
@@ -11,6 +12,71 @@ const Scheduler = require('./scheduler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'transfer-secret-key';
+
+// ========== SECURITY HEADERS ==========
+app.use((req, res, next) => {
+  res.removeHeader('X-Powered-By');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// ========== RATE LIMITING ==========
+const _rlStore = new Map();
+setInterval(() => {
+  const cutoff = Date.now() - 3600000;
+  for (const [k, v] of _rlStore.entries()) {
+    const f = v.filter(t => t > cutoff);
+    if (f.length === 0) _rlStore.delete(k); else _rlStore.set(k, f);
+  }
+}, 600000);
+
+function makeRateLimit(windowMs, max, message) {
+  return (req, res, next) => {
+    const key = (req.ip || '') + req.path;
+    const now = Date.now();
+    const hits = (_rlStore.get(key) || []).filter(t => t > now - windowMs);
+    hits.push(now);
+    _rlStore.set(key, hits);
+    if (hits.length > max) {
+      return res.status(429).json({ success: false, error: message || 'Trop de requêtes. Réessayez plus tard.' });
+    }
+    next();
+  };
+}
+
+const loginLimiter   = makeRateLimit(15 * 60000, 10, 'Trop de tentatives. Réessayez dans 15 minutes.');
+const publicLimiter  = makeRateLimit(60000, 30, 'Trop de requêtes. Réessayez dans une minute.');
+
+// Apply rate limiters before route definitions
+app.use('/api/auth/login',       loginLimiter);
+app.use('/api/transfers/lookup', publicLimiter);
+app.use('/api/track',            publicLimiter);
+
+// ========== TWILIO WEBHOOK VALIDATION ==========
+const validateTwilioSignature = (req, res, next) => {
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!authToken) return next(); // skip if not configured
+  const signature = req.headers['x-twilio-signature'];
+  if (!signature) {
+    console.warn('Webhook sans signature Twilio rejeté depuis:', req.ip);
+    return res.status(403).send('<Response></Response>');
+  }
+  const baseUrl = process.env.BASE_URL || `https://${req.headers.host}`;
+  const url = `${baseUrl}/webhook/whatsapp`;
+  try {
+    const twilioLib = require('twilio');
+    if (!twilioLib.validateRequest(authToken, signature, url, req.body)) {
+      console.warn('Signature Twilio invalide depuis:', req.ip);
+      return res.status(403).send('<Response></Response>');
+    }
+  } catch(e) {
+    console.error('Erreur validation Twilio:', e.message);
+  }
+  next();
+};
 
 // Middleware
 app.use(bodyParser.json());
@@ -86,9 +152,13 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
   res.json({ success: true, user: req.user });
 });
 
-// Route temporaire pour créer un admin (setup initial)
+// Route pour créer un admin (setup initial) — protégée par SETUP_SECRET
 app.post('/api/setup-admin', async (req, res) => {
   try {
+    const setupSecret = process.env.SETUP_SECRET;
+    if (setupSecret && req.body.secret !== setupSecret) {
+      return res.status(403).json({ success: false, error: 'Accès refusé — SETUP_SECRET requis' });
+    }
     const { username, password } = req.body;
     const actualUsername = username || 'admin';
     const actualPassword = password || 'admin123';
@@ -140,12 +210,12 @@ app.post('/api/setup-admin', async (req, res) => {
   }
 });
 
-// Route de debug - vérifier l'état
-app.get('/api/debug/users', async (req, res) => {
+// Route de debug - vérifier l'état (admin uniquement)
+app.get('/api/debug/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const users = await db.getAllUsers();
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       count: users.length,
       users: users.map(u => ({ id: u.id, username: u.username, role: u.role }))
     });
@@ -630,8 +700,37 @@ app.get('/api/audit-logs', authenticateToken, requireAdmin, async (req, res) => 
 
 // ========== WEBHOOKS TWILIO (pas besoin d'auth) ==========
 
+// Geocoding proxy (évite CORS navigateur → Nominatim)
+app.get('/api/geocode', publicLimiter, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length < 2 || q.length > 200) {
+      return res.json({ lat: null, lon: null });
+    }
+    const searchQ = encodeURIComponent(q.trim() + ', Marrakech, Maroc');
+    const data = await new Promise((resolve) => {
+      https.get({
+        hostname: 'nominatim.openstreetmap.org',
+        path: `/search?q=${searchQ}&format=json&limit=1&countrycodes=ma`,
+        headers: { 'User-Agent': 'TransferMarrakechApp/2.0', 'Accept-Language': 'fr' }
+      }, (r) => {
+        let body = '';
+        r.on('data', c => body += c);
+        r.on('end', () => { try { resolve(JSON.parse(body)); } catch(e) { resolve([]); } });
+      }).on('error', () => resolve([]));
+    });
+    if (data && data.length > 0) {
+      res.json({ lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) });
+    } else {
+      res.json({ lat: null, lon: null });
+    }
+  } catch(e) {
+    res.json({ lat: null, lon: null });
+  }
+});
+
 // Webhook WhatsApp
-app.post('/webhook/whatsapp', async (req, res) => {
+app.post('/webhook/whatsapp', validateTwilioSignature, async (req, res) => {
   try {
     const { From, Body } = req.body;
     const phone = From.replace('whatsapp:', '');
