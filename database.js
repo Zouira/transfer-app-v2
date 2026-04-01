@@ -23,10 +23,6 @@ class Database {
       )
     `, (err) => {
       if (err) console.error('Error creating users table:', err.message);
-      else {
-        // Créer admin par défaut si aucun utilisateur
-        this.createDefaultAdmin();
-      }
     });
 
     // Table des chauffeurs (profils)
@@ -764,16 +760,21 @@ class Database {
 
   // ========== BACKUP ==========
   backup() {
-    const backupPath = path.join(__dirname, `backups/transfers_backup_${Date.now()}.db`);
     const fs = require('fs');
-    if (!fs.existsSync(path.join(__dirname, 'backups'))) {
-      fs.mkdirSync(path.join(__dirname, 'backups'));
+    const dbPath = process.env.RENDER_DISK_PATH || __dirname;
+    const backupsDir = path.join(__dirname, 'backups');
+    if (!fs.existsSync(backupsDir)) {
+      fs.mkdirSync(backupsDir, { recursive: true });
     }
+    const backupPath = path.join(backupsDir, `transfers_backup_${Date.now()}.db`);
+    const sourcePath = path.join(dbPath, 'transfers.db');
     return new Promise((resolve, reject) => {
-      const backupDb = new sqlite3.Database(backupPath);
-      this.db.backup(backupPath).then(() => {
+      try {
+        fs.copyFileSync(sourcePath, backupPath);
         resolve(backupPath);
-      }).catch(reject);
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 }
