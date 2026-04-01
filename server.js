@@ -3,6 +3,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const Database = require('./database');
 const TwilioService = require('./twilio');
 const Scheduler = require('./scheduler');
@@ -232,10 +233,12 @@ app.get('/api/drivers/active', authenticateToken, async (req, res) => {
 // Créer chauffeur (ou mettre à jour si le numéro existe déjà)
 app.post('/api/drivers', authenticateToken, async (req, res) => {
   try {
-    const { name, phone, carName, email, language } = req.body;
-    
+    const { name, carName, email, language } = req.body;
+    // Normaliser le numéro : retirer espaces, convertir 06.../07... en +2126.../+2127...
+    const phone = (req.body.phone || '').replace(/\s/g, '').replace(/^0([67])/, '+2126$1').replace(/^00212/, '+212');
+
     // Vérifier si un chauffeur avec ce numéro existe déjà
-    const existingDriver = await db.getAllDrivers().then(drivers => 
+    const existingDriver = await db.getAllDrivers().then(drivers =>
       drivers.find(d => d.phone === phone)
     );
     
@@ -329,23 +332,24 @@ app.post('/api/transfers', authenticateToken, async (req, res) => {
       language: language || driver.language || 'fr'
     }, req.user.id);
 
-    // Envoyer notification WhatsApp au chauffeur
+    // Envoyer notification WhatsApp au chauffeur (non-bloquant)
     const messages = {
       fr: `🚗 Nouveau transfert assigné:\n` +
-          `👤 Client: ${clientName}\n` +
-          `🕐 Date/Heure: ${pickupDateTime}\n` +
-          `📍 Départ: ${pickupLocation}\n` +
+          `👤 Client: ${actualClientName}\n` +
+          `🕐 Date/Heure: ${actualPickupTime}\n` +
+          `📍 Départ: ${actualPickupLocation}\n` +
           `🏁 Destination: ${destination}\n\n` +
           `Répondez OK pour confirmer la réception.`,
       ar: `🚗 نقل جديد تم تعيينه:\n` +
-          `👤 العميل: ${clientName}\n` +
-          `🕐 التاريخ/الوقت: ${pickupDateTime}\n` +
-          `📍 الانطلاق: ${pickupLocation}\n` +
+          `👤 العميل: ${actualClientName}\n` +
+          `🕐 التاريخ/الوقت: ${actualPickupTime}\n` +
+          `📍 الانطلاق: ${actualPickupLocation}\n` +
           `🏁 الوجهة: ${destination}\n\n` +
           `الرد بـ OK لتأكيد الاستلام.`
     };
 
-    await twilio.sendWhatsApp(driver.phone, messages[language || driver.language || 'fr']);
+    twilio.sendWhatsApp(driver.phone, messages[language || driver.language || 'fr'])
+      .catch(err => console.error('WhatsApp notification (non-bloquant):', err.message));
 
     // Incrémenter compteur chauffeur
     await db.incrementDriverTransfers(driver.id);
