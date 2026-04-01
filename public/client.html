@@ -333,31 +333,35 @@
                 
                 if (data.transfers && data.transfers.length > 0) {
                     resultsList.innerHTML = data.transfers.map(t => {
-                        const date = new Date(t.pickup_time);
+                        // Support camelCase (API) et snake_case (ancien)
+                        const pickupDateTime = t.pickupDateTime || t.pickup_time;
+                        const pickupLocation = t.pickupLocation || t.pickup_location;
+                        const trackingToken = t.trackingToken || t.tracking_token;
+                        const driverName = t.driverName || t.driver_name;
+                        const driverPhone = t.driverPhone || t.driver_phone;
+
+                        const date = new Date(pickupDateTime);
                         const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
                         const timeStr = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                        
-                        let statusClass = 'status-pending';
-                        let statusText = 'En attente';
-                        if (t.status === 'confirmed') {
-                            statusClass = 'status-confirmed';
-                            statusText = 'Confirmé';
-                        } else if (t.status === 'in_progress') {
-                            statusClass = 'status-in-progress';
-                            statusText = 'En cours';
-                        } else if (t.status === 'completed') {
-                            statusClass = 'status-completed';
-                            statusText = 'Terminé';
-                        }
-                        
+
+                        const statusMap = {
+                            pending: ['status-pending', 'En attente'],
+                            confirmed: ['status-confirmed', '✅ Confirmé'],
+                            confirmed_by_call: ['status-confirmed', '✅ Confirmé'],
+                            in_progress: ['status-in-progress', '🚗 En cours'],
+                            completed: ['status-completed', '🏁 Terminé'],
+                            cancelled: ['status-cancelled', '❌ Annulé']
+                        };
+                        const [statusClass, statusText] = statusMap[t.status] || ['status-pending', 'En attente'];
+
                         return `
                             <div class="transfer-card">
                                 <div class="transfer-header">
                                     <div class="transfer-route">
                                         <i class="fas fa-map-marker-alt"></i>
-                                        ${t.pickup_location}
+                                        ${pickupLocation || '—'}
                                         <i class="fas fa-arrow-right"></i>
-                                        ${t.destination}
+                                        ${t.destination || '—'}
                                     </div>
                                     <span class="transfer-status ${statusClass}">${statusText}</span>
                                 </div>
@@ -365,8 +369,11 @@
                                     <i class="fas fa-calendar"></i>
                                     ${dateStr} à ${timeStr}
                                 </div>
-                                ${t.tracking_token ? `
-                                <a href="/track.html?token=${t.tracking_token}" class="track-btn">
+                                ${driverName ? `<div style="margin-top:8px;font-size:13px;color:#555;">
+                                    🚗 ${driverName}${driverPhone ? ` — <a href="tel:${driverPhone}">${driverPhone}</a>` : ''}
+                                </div>` : ''}
+                                ${trackingToken ? `
+                                <a href="/track.html?token=${trackingToken}" class="track-btn">
                                     <i class="fas fa-map-marker-alt"></i>
                                     Suivre en temps réel
                                 </a>
