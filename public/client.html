@@ -213,17 +213,22 @@
         }
 
         .transfer-status {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
         }
 
         .status-pending { background: #fff3cd; color: #856404; }
         .status-confirmed { background: #d4edda; color: #155724; }
         .status-in-progress { background: #cce5ff; color: #004085; }
         .status-completed { background: #d1ecf1; color: #0c5460; }
+        .status-cancelled { background: #f8d7da; color: #721c24; }
 
         .track-btn {
             margin-top: 15px;
@@ -356,14 +361,13 @@
 
                         return `
                             <div class="transfer-card">
-                                <div class="transfer-header">
-                                    <div class="transfer-route">
-                                        <i class="fas fa-map-marker-alt"></i>
-                                        ${pickupLocation || '—'}
-                                        <i class="fas fa-arrow-right"></i>
-                                        ${t.destination || '—'}
-                                    </div>
-                                    <span class="transfer-status ${statusClass}">${statusText}</span>
+                                <span class="transfer-status ${statusClass}">${statusText}</span>
+                                ${t.clientName ? `<div style="font-weight:600;font-size:15px;color:var(--dark);margin-bottom:8px;">👤 ${t.clientName}</div>` : ''}
+                                <div class="transfer-route">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    ${pickupLocation || '—'}
+                                    <i class="fas fa-arrow-right"></i>
+                                    ${t.destination || '—'}
                                 </div>
                                 <div class="transfer-time">
                                     <i class="fas fa-calendar"></i>
