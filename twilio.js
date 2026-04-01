@@ -32,7 +32,11 @@ class TwilioService {
   // Passer un appel vocal
   async makeCall(to, transferId) {
     try {
-      const webhookUrl = `${process.env.BASE_URL}/webhook/voice`;
+      const baseUrl = process.env.BASE_URL;
+      if (!baseUrl) {
+        throw new Error('BASE_URL non configuré — appel vocal impossible');
+      }
+      const webhookUrl = `${baseUrl}/webhook/voice`;
       const response = await this.client.calls.create({
         from: this.fromNumber,
         to: to,
