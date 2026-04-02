@@ -155,7 +155,7 @@
 
         .section-title i { color: var(--primary); }
 
-        #map { height: 400px; }
+        #map { height: 450px; }
 
         .transfers-section {
             background: white;
@@ -443,6 +443,34 @@
         .status-in-progress { background: #e3f2fd; color: #1976d2; }
         .status-completed { background: #e8f5e9; color: #27ae60; }
 
+        /* Process modal */
+        .process-step {
+            background: white;
+            border-radius: 12px;
+            padding: 14px 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .process-arrow {
+            text-align: center;
+            color: #ccc;
+            font-size: 16px;
+            margin: 4px 0;
+        }
+        .step-icon {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .step-body { flex: 1; }
+        .step-title { font-weight: 700; font-size: 14px; color: #2c3e50; }
+        .step-desc { font-size: 12px; color: #7f8c8d; margin-top: 2px; line-height: 1.5; }
+        .step-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+
         /* Indicateur de refresh live */
         .live-dot {
             display: inline-block;
@@ -459,6 +487,82 @@
     </style>
 </head>
 <body>
+    <!-- Modal Processus Transfert -->
+    <div id="processModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9998;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 10px;">
+        <div style="background:#f5f7fa;border-radius:20px;width:100%;max-width:480px;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,0.3);margin:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 style="font-size:18px;color:#2c3e50;"><i class="fas fa-sitemap" style="color:#d35400;margin-right:8px;"></i>Processus Transfert</h3>
+                <button onclick="closeProcessModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#999;">✕</button>
+            </div>
+
+            <div class="process-step" style="border-left:4px solid #3498db;">
+                <div class="step-icon" style="background:#ebf5fb;"><i class="fas fa-mobile-alt" style="color:#3498db;"></i></div>
+                <div class="step-body">
+                    <div class="step-title">1. Réservation <span class="step-badge" style="background:#ebf5fb;color:#3498db;">WhatsApp / Direct</span></div>
+                    <div class="step-desc">Client envoie sa demande — l'opérateur saisit le transfert dans l'app. Le client reçoit une confirmation de réception.</div>
+                </div>
+            </div>
+            <div class="process-arrow"><i class="fas fa-chevron-down"></i></div>
+
+            <div class="process-step" style="border-left:4px solid #f39c12;">
+                <div class="step-icon" style="background:#fef9e7;"><i class="fas fa-clock" style="color:#f39c12;"></i></div>
+                <div class="step-body">
+                    <div class="step-title">2. En attente <span class="step-badge" style="background:#fff3cd;color:#856404;">pending</span></div>
+                    <div class="step-desc">Transfert créé, chauffeur non encore assigné. Alerte automatique si non confirmé avant J-1.</div>
+                </div>
+            </div>
+            <div class="process-arrow"><i class="fas fa-chevron-down"></i></div>
+
+            <div class="process-step" style="border-left:4px solid #27ae60;">
+                <div class="step-icon" style="background:#eafaf1;"><i class="fas fa-check-circle" style="color:#27ae60;"></i></div>
+                <div class="step-body">
+                    <div class="step-title">3. Confirmé <span class="step-badge" style="background:#d4edda;color:#155724;">confirmed</span></div>
+                    <div class="step-desc">Chauffeur assigné et confirmé (WhatsApp ou appel). Le client est notifié avec le nom du chauffeur.</div>
+                </div>
+            </div>
+            <div class="process-arrow"><i class="fas fa-chevron-down"></i></div>
+
+            <div class="process-step" style="border-left:4px solid #1976d2;">
+                <div class="step-icon" style="background:#e3f2fd;"><i class="fas fa-car" style="color:#1976d2;"></i></div>
+                <div class="step-body">
+                    <div class="step-title">4. En cours <span class="step-badge" style="background:#cce5ff;color:#004085;">in_progress</span></div>
+                    <div class="step-desc">Mission démarrée — bouton <b>GO</b> cliqué. Le trajet s'affiche sur la carte avec une ligne en pointillés.</div>
+                </div>
+            </div>
+            <div class="process-arrow"><i class="fas fa-chevron-down"></i></div>
+
+            <div class="process-step" style="border-left:4px solid #17a2b8;">
+                <div class="step-icon" style="background:#d1ecf1;"><i class="fas fa-flag-checkered" style="color:#17a2b8;"></i></div>
+                <div class="step-body">
+                    <div class="step-title">5. Terminé <span class="step-badge" style="background:#d1ecf1;color:#0c5460;">completed</span></div>
+                    <div class="step-desc">Mission clôturée — bouton <b>FIN</b> cliqué. Le client reçoit une demande d'évaluation (1 à 5 étoiles).</div>
+                </div>
+            </div>
+            <div class="process-arrow"><i class="fas fa-chevron-down"></i></div>
+
+            <div class="process-step" style="border-left:4px solid #f39c12;">
+                <div class="step-icon" style="background:#fef9e7;"><i class="fas fa-star" style="color:#f39c12;"></i></div>
+                <div class="step-body">
+                    <div class="step-title">6. Évaluation client <span class="step-badge" style="background:#fff3cd;color:#856404;">⭐ 1-5</span></div>
+                    <div class="step-desc">Client note la course via WhatsApp. La note apparaît dans l'historique et l'export CSV.</div>
+                </div>
+            </div>
+
+            <div style="margin-top:20px;padding:14px;background:#fff8f0;border-radius:12px;border:1px solid #f0d0b0;">
+                <div style="font-size:12px;font-weight:700;color:#d35400;margin-bottom:6px;"><i class="fas fa-exclamation-triangle"></i> Points d'attention</div>
+                <div style="font-size:12px;color:#7f8c8d;line-height:1.7;">
+                    • Transfert <b>non confirmé 24h avant</b> → alerte 🔴 automatique<br>
+                    • Annulé → statut <b style="color:#e74c3c;">cancelled</b>, aucune notification<br>
+                    • Export CSV : Admin &amp; Directeur uniquement
+                </div>
+            </div>
+
+            <button onclick="closeProcessModal()" style="width:100%;margin-top:16px;padding:12px;background:linear-gradient(135deg,#d35400,#e67e22);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">
+                Fermer
+            </button>
+        </div>
+    </div>
+
     <!-- Modal Changement Mot de Passe -->
     <div id="pwdModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
         <div style="background:white;border-radius:20px;padding:30px;width:90%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
@@ -492,6 +596,9 @@
             <h1><i class="fas fa-car"></i> Transfer Marrakech<span class="live-dot" title="Mise à jour automatique"></span></h1>
             <div class="header-actions">
                 <span id="roleTag" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,0.2);color:white;text-transform:uppercase;letter-spacing:0.5px;"></span>
+                <button class="btn-icon" title="Voir le processus" onclick="openProcessModal()" style="font-size:14px;">
+                    <i class="fas fa-sitemap"></i>
+                </button>
                 <button class="btn-icon" title="Changer mot de passe" onclick="openPwdModal()">
                     <i class="fas fa-key"></i>
                 </button>
@@ -537,26 +644,37 @@
                 <div class="section-title">
                     <i class="fas fa-map-marked-alt"></i>
                     Vue carte - Marrakech
+                    <span id="mapActiveCount" style="font-size:11px;background:#f39c12;color:white;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:4px;display:none;"></span>
                 </div>
+                <button onclick="openProcessModal()" style="background:#f5f5f5;border:1px solid #e0e0e0;border-radius:10px;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600;color:#555;font-family:inherit;">
+                    <i class="fas fa-sitemap" style="color:#d35400;"></i> Processus
+                </button>
             </div>
             <div id="map"></div>
-            
+            <div id="mapStatus" style="text-align:center;font-size:12px;color:#999;padding:6px 0;display:none;">
+                <i class="fas fa-spinner fa-spin"></i> Géolocalisation des transferts...
+            </div>
+
             <div class="map-legend">
                 <div class="legend-item">
-                    <div class="legend-dot" style="background: #27ae60;"></div>
-                    <span>Disponible</span>
-                </div>
-                <div class="legend-item">
                     <div class="legend-dot" style="background: #f39c12;"></div>
-                    <span>En route</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-dot" style="background: #e74c3c;"></div>
-                    <span>En retard</span>
+                    <span>En attente</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-dot" style="background: #3498db;"></div>
+                    <span>Confirmé</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #27ae60;"></div>
                     <span>En cours</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #9b59b6;"></div>
+                    <span>Assigné</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #95a5a6;border-radius:3px;"></div>
+                    <span>Aéroport</span>
                 </div>
             </div>
         </div>
@@ -687,16 +805,74 @@
             document.getElementById('exportEndDate').value = today.toISOString().split('T')[0];
         });
 
+        // === GÉOLOCALISATION ===
+        const MARRAKECH_LIEUX = {
+            'aeroport': [31.6068, -8.0383], 'aéroport': [31.6068, -8.0383],
+            'menara': [31.6068, -8.0383], 'airport': [31.6068, -8.0383],
+            'rak': [31.6068, -8.0383], 'aeroport menara': [31.6068, -8.0383],
+            'gare': [31.6289, -7.9856], 'gare oncf': [31.6289, -7.9856],
+            'gare routière': [31.6207, -7.9849], 'ctt': [31.6207, -7.9849],
+            'jemaa el fna': [31.6258, -7.9892], 'place jemaa': [31.6258, -7.9892],
+            'djemaa': [31.6258, -7.9892], 'medina': [31.6295, -7.9811],
+            'koutoubia': [31.6238, -7.9939], 'koutoubia mosque': [31.6238, -7.9939],
+            'majorelle': [31.6422, -7.9997], 'jardin majorelle': [31.6422, -7.9997],
+            'hivernage': [31.6215, -8.0100], 'quartier hivernage': [31.6215, -8.0100],
+            'guéliz': [31.6378, -8.0084], 'gueliz': [31.6378, -8.0084],
+            'palmeraie': [31.6670, -7.9545], 'la palmeraie': [31.6670, -7.9545],
+            'amerchich': [31.6450, -8.0280], 'marjane': [31.6534, -8.0241],
+            'bab doukkala': [31.6361, -7.9940], 'bab agnaou': [31.6224, -7.9896],
+            'bab ghmat': [31.6170, -7.9795], 'mellah': [31.6188, -7.9820],
+            'riad': [31.6295, -7.9811], 'bahia': [31.6196, -7.9826],
+            'agadir': [30.4278, -9.5981], 'casablanca': [33.5731, -7.5898],
+            'essaouira': [31.5085, -9.7595], 'ouarzazate': [30.9335, -6.9370],
+            'safi': [32.2994, -9.2372], 'fes': [34.0181, -5.0078],
+            'tanger': [35.7595, -5.8340], 'rabat': [34.0209, -6.8416]
+        };
+        const geoCache = {};
+
+        async function geocodeLocation(q) {
+            if (!q) return null;
+            const key = q.trim().toLowerCase();
+            if (geoCache[key] !== undefined) return geoCache[key];
+            // Check dictionary
+            for (const [k, coords] of Object.entries(MARRAKECH_LIEUX)) {
+                if (key.includes(k) || k.includes(key)) {
+                    geoCache[key] = coords;
+                    return coords;
+                }
+            }
+            // Fallback: server-side proxy
+            try {
+                const r = await fetch('/api/geocode?q=' + encodeURIComponent(q));
+                const d = await r.json();
+                if (d.lat && d.lon) {
+                    const coords = [parseFloat(d.lat), parseFloat(d.lon)];
+                    geoCache[key] = coords;
+                    return coords;
+                }
+            } catch(e) {}
+            geoCache[key] = null;
+            return null;
+        }
+
+        // === CARTE ===
+        let airportMarker;
         function initMap() {
             map = L.map('map').setView([31.6295, -7.9811], 12);
-            
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap'
             }).addTo(map);
 
-            L.marker([31.6068, -8.0383])
+            // Marqueur fixe aéroport
+            const airportIcon = L.divIcon({
+                className: '',
+                html: `<div style="background:#7f8c8d;border:3px solid white;border-radius:4px;width:18px;height:18px;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;" title="Aéroport">✈</div>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            });
+            airportMarker = L.marker([31.6068, -8.0383], { icon: airportIcon })
                 .addTo(map)
-                .bindPopup('Aéroport Marrakech Menara');
+                .bindPopup('<b>✈ Aéroport Marrakech Menara</b>');
         }
 
         async function loadDashboardData() {
@@ -835,35 +1011,115 @@
             }).join('') || '<div style="padding: 40px; text-align: center; color: #7f8c8d;">Aucun transfert</div>';
         }
 
-        function updateMap() {
+        async function updateMap() {
+            // Supprimer anciens marqueurs
             markers.forEach(m => map.removeLayer(m));
             markers = [];
-            
-            transfers.forEach(t => {
-                if (t.driver_lat && t.driver_lng) {
-                    let color = '#27ae60';
-                    if (t.status === 'in_progress') color = '#3498db';
-                    if (t.alert_sent) color = '#e74c3c';
-                    else if (t.status === 'pending') color = '#f39c12';
-                    
-                    const marker = L.circleMarker([t.driver_lat, t.driver_lng], {
-                        radius: 10,
-                        fillColor: color,
-                        color: '#fff',
-                        weight: 2,
-                        opacity: 1,
-                        fillOpacity: 0.8
-                    }).addTo(map);
-                    
-                    marker.bindPopup(`
-                        <b>${t.client_name}</b><br>
-                        ${t.pickup_location} → ${t.destination}<br>
-                        Chauffeur: ${t.driver_name}
-                    `);
-                    
-                    markers.push(marker);
+
+            // Filtrer les transferts actifs (pas terminés ni annulés)
+            const activeTransfers = transfers.filter(t =>
+                !['completed', 'cancelled'].includes(t.status)
+            ).slice(0, 25); // max 25 pour éviter trop de requêtes
+
+            // Compteur
+            const mapCounter = document.getElementById('mapActiveCount');
+            if (mapCounter) {
+                mapCounter.textContent = activeTransfers.length + ' actif' + (activeTransfers.length > 1 ? 's' : '');
+                mapCounter.style.display = activeTransfers.length > 0 ? 'inline' : 'none';
+            }
+
+            if (activeTransfers.length === 0) return;
+
+            const mapStatus = document.getElementById('mapStatus');
+            if (mapStatus) mapStatus.style.display = 'block';
+
+            const statusColors = {
+                pending: '#f39c12',
+                assigned: '#9b59b6',
+                confirmed: '#3498db',
+                confirmed_by_call: '#2980b9',
+                in_progress: '#27ae60'
+            };
+            const statusLabels = {
+                pending: '⏳ En attente', assigned: '📋 Assigné',
+                confirmed: '✅ Confirmé', confirmed_by_call: '📞 Confirmé (appel)',
+                in_progress: '🚗 En cours'
+            };
+
+            const geocodedMarkers = [];
+
+            for (const t of activeTransfers) {
+                const pickupLocation = t.pickupLocation || t.pickup_location;
+                const destination = t.destination;
+                const clientName = t.clientName || t.client_name || 'Client';
+                const driverName = t.driverName || t.driver_name || 'Non assigné';
+                const pickupTime = t.pickupDateTime || t.pickup_time;
+                const timeStr = pickupTime
+                    ? new Date(pickupTime).toLocaleString('fr-FR', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})
+                    : '—';
+                const color = (t.alertSent || t.alert_sent) ? '#e74c3c' : (statusColors[t.status] || '#95a5a6');
+                const statusLabel = statusLabels[t.status] || t.status;
+
+                const pickupCoords = await geocodeLocation(pickupLocation);
+                if (!pickupCoords) continue;
+
+                const markerHtml = (t.alertSent || t.alert_sent)
+                    ? `<div style="background:${color};border:3px solid white;border-radius:50%;width:22px;height:22px;box-shadow:0 2px 8px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:11px;color:white;font-weight:700;">!</div>`
+                    : `<div style="background:${color};border:3px solid white;border-radius:50%;width:20px;height:20px;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>`;
+
+                const icon = L.divIcon({ className: '', html: markerHtml, iconSize: [22, 22], iconAnchor: [11, 11] });
+                const marker = L.marker(pickupCoords, { icon }).addTo(map);
+
+                marker.bindPopup(`
+                    <div style="min-width:180px;font-family:Poppins,sans-serif;font-size:13px;">
+                        <div style="font-weight:700;font-size:15px;margin-bottom:6px;color:#2c3e50;">${clientName}</div>
+                        <div style="margin-bottom:6px;">
+                            <span style="background:${color};color:white;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;">${statusLabel}</span>
+                        </div>
+                        <div style="color:#555;margin-bottom:4px;">
+                            📍 <b>Départ :</b> ${pickupLocation || '?'}<br>
+                            🏁 <b>Arrivée :</b> ${destination || '?'}
+                        </div>
+                        <div style="color:#888;font-size:12px;margin-bottom:8px;">
+                            🕐 ${timeStr}<br>
+                            🚖 ${driverName}
+                        </div>
+                        <a href="/transfer-detail.html?id=${t.id}" style="color:#d35400;font-weight:600;font-size:12px;text-decoration:none;">→ Voir le détail</a>
+                    </div>
+                `);
+                markers.push(marker);
+                geocodedMarkers.push(marker);
+
+                // Trajet en pointillés pour les missions en cours
+                if (t.status === 'in_progress' && destination) {
+                    const destCoords = await geocodeLocation(destination);
+                    if (destCoords) {
+                        const line = L.polyline([pickupCoords, destCoords], {
+                            color: '#27ae60', weight: 3, opacity: 0.7, dashArray: '8, 6'
+                        }).addTo(map);
+                        markers.push(line);
+
+                        const destIcon = L.divIcon({
+                            className: '',
+                            html: `<div style="background:#27ae60;border:3px solid white;width:14px;height:14px;transform:rotate(45deg);box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>`,
+                            iconSize: [14, 14], iconAnchor: [7, 7]
+                        });
+                        const destM = L.marker(destCoords, { icon: destIcon }).addTo(map);
+                        destM.bindPopup(`<div style="font-size:13px;"><b>🏁 Destination</b><br>${destination}<br><small style="color:#888;">Client: ${clientName}</small></div>`);
+                        markers.push(destM);
+                    }
                 }
-            });
+            }
+
+            if (mapStatus) mapStatus.style.display = 'none';
+
+            // Ajuster la vue sur tous les marqueurs
+            if (geocodedMarkers.length > 0) {
+                try {
+                    const group = L.featureGroup(geocodedMarkers);
+                    map.fitBounds(group.getBounds().pad(0.25));
+                } catch(e) {}
+            }
         }
 
         function filterTransfers(filter) {
@@ -983,6 +1239,17 @@
                 }
             }
         })();
+
+        // ===== PROCESSUS =====
+        function openProcessModal() {
+            document.getElementById('processModal').style.display = 'flex';
+        }
+        function closeProcessModal() {
+            document.getElementById('processModal').style.display = 'none';
+        }
+        document.getElementById('processModal').addEventListener('click', function(e) {
+            if (e.target === this) closeProcessModal();
+        });
 
         // ===== CHANGEMENT MOT DE PASSE =====
         function openPwdModal() {
