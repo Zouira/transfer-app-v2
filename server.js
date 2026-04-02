@@ -799,51 +799,115 @@ app.post('/webhook/whatsapp', validateTwilioSignature, async (req, res) => {
     const bodyLower = (Body || '').toLowerCase().trim();
     const bodyClean = (Body || '').trim();
 
-    // --- PLANNING : répond toujours, même sans transfert actif ---
+    // ── Helpers webhook ──────────────────────────────────────────────────────
+    // Sélectionne un transfert dans une liste par numéro d'ordre (ex: "GO 2")
+    // ou par ID (ex: "GO #47"). Par défaut : premier de la liste.
+    function pickTransfer(list, bodyStr) {
+      if (!list || list.length === 0) return null;
+      // "GO #123" → par ID
+      const idMatch = bodyStr.match(/#(\d+)/);
+      if (idMatch) {
+        const id = parseInt(idMatch[1]);
+        return list.find(t => t.id === id) || null;
+      }
+      // "GO 2" → par numéro d'ordre (1-based)
+      const numMatch = bodyStr.match(/\s(\d+)$/);
+      if (numMatch) {
+        const idx = parseInt(numMatch[1]) - 1;
+        return list[idx] || list[0];
+      }
+      return list[0]; // par défaut : le premier
+    }
+
+    // ── PLANNING : répond toujours, même sans transfert actif ────────────────
     const planningKeywords = ['planning', 'agenda', 'programme', 'courses', 'mes courses', 'planning?', 'agenda?'];
     if (planningKeywords.includes(bodyLower) || bodyLower.startsWith('planning')) {
-      const todayTransfers = await db.getTodayTransfersByDriverPhone(phone);
+      // Après 21h30 → planning de demain
+      const now = new Date();
+      const isLateEvening = now.getHours() > 21 || (now.getHours() === 21 && now.getMinutes() >= 30);
+      const targetDate = new Date(now);
+      if (isLateEvening) targetDate.setDate(targetDate.getDate() + 1);
+      const dateStr = targetDate.toISOString().split('T')[0];
+      const dateLabel = targetDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+      const dayTransfers = await db.getTransfersByDriverPhoneForDate(phone, dateStr);
       let reply = '';
-      if (!todayTransfers || todayTransfers.length === 0) {
-        reply = `📅 Aucune course prévue pour aujourd'hui.\n\nBonne journée ! 😊`;
+      if (!dayTransfers || dayTransfers.length === 0) {
+        reply = isLateEvening
+          ? `📅 Aucune course prévue pour demain.\n\nBonne nuit ! 🌙`
+          : `📅 Aucune course prévue pour aujourd'hui.\n\nBonne journée ! 😊`;
       } else {
-        const dateStr = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-        reply = `📅 Votre planning du ${dateStr} :\n\n`;
-        todayTransfers.forEach((t, i) => {
+        reply = `📅 Planning du ${dateLabel} :\n\n`;
+        dayTransfers.forEach((t, i) => {
           const time = new Date(t.pickupDateTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
           const statusEmoji = { pending: '⏳', assigned: '📋', confirmed: '✅', confirmed_by_call: '📞', in_progress: '🚗', completed: '🏁', cancelled: '❌' }[t.status] || '⏳';
-          reply += `${i + 1}. ${statusEmoji} ${time}\n`;
+          reply += `${i + 1}. ${statusEmoji} ${time} — #${t.id}\n`;
           reply += `   👤 ${t.clientName}\n`;
-          reply += `   📍 ${t.pickupLocation}\n`;
-          reply += `   🏁 ${t.destination}\n`;
-          if (i < todayTransfers.length - 1) reply += '\n';
+          reply += `   📍 ${t.pickupLocation} → ${t.destination}\n`;
+          if (i < dayTransfers.length - 1) reply += '\n';
         });
-        reply += `\n\nTotal : ${todayTransfers.length} course(s) aujourd'hui.`;
+        reply += `\nTotal : ${dayTransfers.length} course(s).`;
+        if (dayTransfers.length > 1) {
+          reply += `\n\n💡 Pour démarrer une course précise :\nGO 1, GO 2… ou GO #${dayTransfers[0].id}`;
+        }
       }
       await twilio.sendWhatsApp(phone, reply);
       res.send('<Response></Response>');
       return;
     }
 
-    // --- Messages du CHAUFFEUR (GO / FIN / OK) ---
-    const driverTransfer = await db.getTransferByDriverPhone(phone);
-    if (driverTransfer) {
-      const lang = driverTransfer.language || 'fr';
+    // ── GO / FIN / OK — avec sélection multi-transfert ───────────────────────
+    const isGo  = /^(go|parti|départ|depart)(\s.*)?$/.test(bodyLower);
+    const isFin = /^(fin|arrivé|arrive|terminé|termine)(\s.*)?$/.test(bodyLower);
+    const isOk  = bodyLower.includes('ok');
 
-      if (bodyLower.includes('ok') && !['in_progress','completed','cancelled'].includes(driverTransfer.status)) {
-        // Confirmation de réception
-        await db.updateTransferStatus(driverTransfer.id, 'confirmed');
-        await twilio.sendWhatsApp(phone, lang === 'ar' ? '✅ تم تأكيد النقل. شكراً!' : '✅ Transfert confirmé. Merci !');
+    if (isGo || isFin || isOk) {
+      const activeTransfers = await db.getActiveTransfersByDriverPhone(phone);
+      if (!activeTransfers || activeTransfers.length === 0) {
+        res.send('<Response></Response>');
+        return;
+      }
 
-      } else if (bodyLower === 'go' || bodyLower === 'parti' || bodyLower === 'départ' || bodyLower === 'depart') {
-        // Mission démarrée
-        await db.updateTransferStatus(driverTransfer.id, 'in_progress');
-        await twilio.sendWhatsApp(phone, lang === 'ar' ? '🚗 تم تسجيل انطلاقك. بالتوفيق !' : '🚗 Mission démarrée. Bon voyage !');
+      const lang = activeTransfers[0].language || 'fr';
 
-      } else if (bodyLower === 'fin' || bodyLower === 'arrivé' || bodyLower === 'arrive' || bodyLower === 'terminé' || bodyLower === 'termine') {
-        // Mission terminée
-        await db.updateTransferStatus(driverTransfer.id, 'completed');
-        await twilio.sendWhatsApp(phone, lang === 'ar' ? '✅ تم تسجيل نهاية المهمة. شكراً !' : '✅ Mission terminée. Merci !');
+      if (isGo) {
+        // Pour GO : cibler les transferts NON encore démarrés
+        const goable = activeTransfers.filter(t => t.status !== 'in_progress');
+        const target = pickTransfer(goable.length ? goable : activeTransfers, bodyLower);
+        if (target) {
+          await db.updateTransferStatus(target.id, 'in_progress');
+          const timeStr = new Date(target.pickupDateTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          await twilio.sendWhatsApp(phone,
+            lang === 'ar'
+              ? `🚗 تم تسجيل انطلاقك للنقل #${target.id}. بالتوفيق !`
+              : `🚗 GO enregistré — Course #${target.id} (${timeStr}, ${target.clientName}). Bon voyage !`
+          );
+        }
+
+      } else if (isFin) {
+        // Pour FIN : cibler les transferts en cours
+        const finishable = activeTransfers.filter(t => t.status === 'in_progress');
+        const target = pickTransfer(finishable.length ? finishable : activeTransfers, bodyLower);
+        if (target) {
+          await db.updateTransferStatus(target.id, 'completed');
+          const timeStr = new Date(target.pickupDateTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          await twilio.sendWhatsApp(phone,
+            lang === 'ar'
+              ? `✅ تم تسجيل نهاية النقل #${target.id}. شكراً !`
+              : `✅ FIN enregistré — Course #${target.id} (${timeStr}, ${target.clientName}). Merci !`
+          );
+        }
+
+      } else if (isOk) {
+        // OK confirme le premier transfert non encore confirmé
+        const confirmable = activeTransfers.filter(t => !['in_progress','completed','cancelled'].includes(t.status));
+        const target = pickTransfer(confirmable, bodyLower);
+        if (target) {
+          await db.updateTransferStatus(target.id, 'confirmed');
+          await twilio.sendWhatsApp(phone,
+            lang === 'ar' ? '✅ تم تأكيد النقل. شكراً!' : '✅ Transfert confirmé. Merci !'
+          );
+        }
       }
 
       res.send('<Response></Response>');
