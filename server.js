@@ -108,6 +108,14 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
+// Admin ou Directeur (lecture seule — pas d'export CSV ni gestion utilisateurs)
+const requireAdminOrDirecteur = (req, res, next) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'directeur') {
+    return res.status(403).json({ success: false, error: 'Accès réservé aux administrateurs et directeurs' });
+  }
+  next();
+};
+
 // Initialize services
 const db = new Database();
 const twilio = new TwilioService();
@@ -150,6 +158,32 @@ app.post('/api/auth/login', async (req, res) => {
 // Vérifier token
 app.get('/api/auth/verify', authenticateToken, (req, res) => {
   res.json({ success: true, user: req.user });
+});
+
+// Changer mot de passe (tout utilisateur connecté)
+app.put('/api/auth/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, error: 'Mot de passe actuel et nouveau requis' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, error: 'Nouveau mot de passe trop court (min 6 caractères)' });
+    }
+    const user = await db.getUserById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, error: 'Utilisateur introuvable' });
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) {
+      return res.status(401).json({ success: false, error: 'Mot de passe actuel incorrect' });
+    }
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await db.updateUserPassword(req.user.id, hashed);
+    await db.logAudit(req.user.id, 'CHANGE_PASSWORD', 'user', req.user.id, {});
+    res.json({ success: true, message: 'Mot de passe modifié avec succès ✅' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // Route pour créer un admin (setup initial) — protégée par SETUP_SECRET
@@ -689,7 +723,7 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
 
 // ========== ROUTES AUDIT ==========
 
-app.get('/api/audit-logs', authenticateToken, requireAdmin, async (req, res) => {
+app.get('/api/audit-logs', authenticateToken, requireAdminOrDirecteur, async (req, res) => {
   try {
     const logs = await db.getAuditLogs(100);
     res.json({ success: true, logs });
