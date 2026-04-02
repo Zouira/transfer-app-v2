@@ -561,8 +561,8 @@
             </div>
         </div>
 
-        <!-- Export Section -->
-        <div class="export-section">
+        <!-- Export Section (admin + directeur) -->
+        <div class="export-section" id="exportSection">
             <div class="export-title">
                 <i class="fas fa-file-excel"></i>
                 Exporter vers Excel
@@ -581,6 +581,39 @@
                     Télécharger CSV
                 </button>
             </div>
+        </div>
+
+        <!-- Section Utilisateurs (admin + directeur) -->
+        <div class="export-section" id="usersSection" style="display:none;">
+            <div class="export-title">
+                <i class="fas fa-users-cog"></i>
+                Gestion des utilisateurs
+            </div>
+
+            <!-- Formulaire création -->
+            <div id="createUserForm" style="background:#f8f9fa;border-radius:12px;padding:16px;margin-bottom:16px;">
+                <div style="font-weight:600;font-size:14px;color:#2c3e50;margin-bottom:12px;">➕ Créer un compte</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                    <input type="text" id="newUsername" placeholder="Nom d'utilisateur"
+                        style="padding:10px 12px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;font-family:inherit;">
+                    <input type="password" id="newPassword" placeholder="Mot de passe (min 6)"
+                        style="padding:10px 12px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;font-family:inherit;">
+                    <input type="text" id="newFullName" placeholder="Nom complet"
+                        style="padding:10px 12px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;font-family:inherit;">
+                    <select id="newRole" style="padding:10px 12px;border:2px solid #e8e8e8;border-radius:8px;font-size:13px;font-family:inherit;background:white;">
+                        <option value="operator">👤 Opérateur</option>
+                        <option value="directeur" class="admin-only-option">🏢 Directeur</option>
+                        <option value="admin" class="admin-only-option">👑 Admin</option>
+                    </select>
+                </div>
+                <button onclick="createUserAccount()" style="width:100%;padding:10px;background:linear-gradient(135deg,#d35400,#e67e22);color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+                    <i class="fas fa-user-plus"></i> Créer le compte
+                </button>
+                <div id="createUserMsg" style="font-size:12px;margin-top:8px;min-height:16px;"></div>
+            </div>
+
+            <!-- Liste des utilisateurs -->
+            <div id="usersList" style="font-size:13px;"></div>
         </div>
 
         <!-- Transfers List -->
@@ -933,16 +966,21 @@
             const tag = document.getElementById('roleTag');
             if (tag) tag.textContent = roleLabels[role] || role;
 
-            // Masquer l'export CSV pour les non-admins
-            if (role !== 'admin') {
-                const exportSection = document.querySelector('.export-section');
-                if (exportSection) exportSection.style.display = 'none';
+            // Export CSV : visible pour admin et directeur
+            const exportSection = document.getElementById('exportSection');
+            if (exportSection && role !== 'admin' && role !== 'directeur') {
+                exportSection.style.display = 'none';
             }
 
-            // Masquer la création/suppression chauffeur et transfert pour directeur
-            if (role === 'directeur') {
-                // Masquer boutons d'action sensibles (ajout, suppression)
-                document.querySelectorAll('.btn-add, .btn-delete, [onclick*="showAddDriver"], [onclick*="deleteDriver"]').forEach(el => el.style.display = 'none');
+            // Section Utilisateurs : visible pour admin et directeur
+            const usersSection = document.getElementById('usersSection');
+            if (usersSection && (role === 'admin' || role === 'directeur')) {
+                usersSection.style.display = 'block';
+                loadUsersList();
+                // Directeur : masquer options admin/directeur dans le select
+                if (role === 'directeur') {
+                    document.querySelectorAll('.admin-only-option').forEach(opt => opt.style.display = 'none');
+                }
             }
         })();
 
@@ -1006,6 +1044,101 @@
         document.getElementById('pwdModal').addEventListener('click', function(e) {
             if (e.target === this) closePwdModal();
         });
+
+        // ===== GESTION UTILISATEURS =====
+        async function loadUsersList() {
+            try {
+                const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await res.json();
+                if (!data.success) return;
+
+                const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                const roleLabels = { admin: '👑 Admin', directeur: '🏢 Directeur', operator: '👤 Opérateur' };
+                const roleBg = { admin: '#fdecea', directeur: '#e8f5e9', operator: '#e3f2fd' };
+                const roleColor = { admin: '#c0392b', directeur: '#27ae60', operator: '#2980b9' };
+
+                document.getElementById('usersList').innerHTML = `
+                    <div style="font-weight:600;font-size:13px;color:#2c3e50;margin-bottom:10px;">👥 Comptes existants (${data.users.length})</div>
+                    ${data.users.map(u => `
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:white;border-radius:8px;margin-bottom:6px;border:1px solid #f0f0f0;">
+                            <div>
+                                <span style="font-weight:600;color:#2c3e50;font-size:13px;">${u.fullName || u.username}</span>
+                                <span style="color:#999;font-size:12px;margin-left:6px;">@${u.username}</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="background:${roleBg[u.role]||'#f0f0f0'};color:${roleColor[u.role]||'#555'};padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">
+                                    ${roleLabels[u.role] || u.role}
+                                </span>
+                                ${currentUser.role === 'admin' && u.id !== currentUser.id ? `
+                                    <button onclick="deleteUserAccount(${u.id}, '${u.username}')"
+                                        style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:14px;padding:2px 4px;"
+                                        title="Supprimer">🗑️</button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            } catch(e) {
+                document.getElementById('usersList').innerHTML = '<div style="color:#e74c3c;font-size:12px;">Erreur chargement</div>';
+            }
+        }
+
+        async function createUserAccount() {
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value;
+            const fullName = document.getElementById('newFullName').value.trim();
+            const role = document.getElementById('newRole').value;
+            const msgEl = document.getElementById('createUserMsg');
+
+            if (!username || !password) {
+                msgEl.style.color = '#e74c3c';
+                msgEl.textContent = '⚠️ Nom d\'utilisateur et mot de passe requis';
+                return;
+            }
+            if (password.length < 6) {
+                msgEl.style.color = '#e74c3c';
+                msgEl.textContent = '⚠️ Mot de passe trop court (min 6 caractères)';
+                return;
+            }
+            try {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, fullName, role })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    msgEl.style.color = '#27ae60';
+                    msgEl.textContent = `✅ Compte "${username}" créé avec succès !`;
+                    document.getElementById('newUsername').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('newFullName').value = '';
+                    document.getElementById('newRole').value = 'operator';
+                    loadUsersList();
+                } else {
+                    msgEl.style.color = '#e74c3c';
+                    msgEl.textContent = '❌ ' + data.error;
+                }
+            } catch(e) {
+                msgEl.style.color = '#e74c3c';
+                msgEl.textContent = '❌ Erreur réseau';
+            }
+        }
+
+        async function deleteUserAccount(id, username) {
+            if (!confirm(`Supprimer le compte "${username}" ?`)) return;
+            try {
+                const res = await fetch(`/api/users/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) loadUsersList();
+                else alert('Erreur: ' + data.error);
+            } catch(e) {
+                alert('Erreur réseau');
+            }
+        }
     </script>
 </body>
 </html>
