@@ -301,12 +301,40 @@ app.post('/api/fix-database', async (req, res) => {
   }
 });
 
-// Créer utilisateur (admin only)
-app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
+// Lister les utilisateurs (admin + directeur)
+app.get('/api/users', authenticateToken, requireAdminOrDirecteur, async (req, res) => {
   try {
+    const users = await db.getAllUsers();
+    res.json({ success: true, users });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Créer utilisateur (admin: tous les rôles — directeur: opérateur uniquement)
+app.post('/api/users', authenticateToken, requireAdminOrDirecteur, async (req, res) => {
+  try {
+    const requestedRole = req.body.role || 'operator';
+    if (req.user.role === 'directeur' && requestedRole !== 'operator') {
+      return res.status(403).json({ success: false, error: 'Le directeur ne peut créer que des opérateurs' });
+    }
     const user = await db.createUser(req.body);
     await db.logAudit(req.user.id, 'CREATE_USER', 'user', user.id, { username: req.body.username });
     res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Supprimer utilisateur (admin uniquement)
+app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    if (parseInt(req.params.id) === req.user.id) {
+      return res.status(400).json({ success: false, error: 'Impossible de supprimer votre propre compte' });
+    }
+    await db.deleteUser(req.params.id);
+    await db.logAudit(req.user.id, 'DELETE_USER', 'user', req.params.id, {});
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -663,8 +691,8 @@ app.post('/api/transfers/:id/status', authenticateToken, async (req, res) => {
   }
 });
 
-// Export CSV
-app.get('/api/transfers/export/csv', authenticateToken, async (req, res) => {
+// Export CSV (admin + directeur)
+app.get('/api/transfers/export/csv', authenticateToken, requireAdminOrDirecteur, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     if (!startDate || !endDate) {
