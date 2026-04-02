@@ -459,11 +459,42 @@
     </style>
 </head>
 <body>
+    <!-- Modal Changement Mot de Passe -->
+    <div id="pwdModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+        <div style="background:white;border-radius:20px;padding:30px;width:90%;max-width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+            <h3 style="margin-bottom:20px;color:#2c3e50;font-size:18px;"><i class="fas fa-lock" style="color:#d35400;margin-right:8px;"></i>Changer le mot de passe</h3>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:#555;display:block;margin-bottom:6px;">Mot de passe actuel</label>
+                <input type="password" id="pwdCurrent" placeholder="••••••••"
+                    style="width:100%;padding:12px 14px;border:2px solid #e8e8e8;border-radius:10px;font-size:14px;font-family:inherit;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-size:13px;font-weight:600;color:#555;display:block;margin-bottom:6px;">Nouveau mot de passe</label>
+                <input type="password" id="pwdNew" placeholder="Min 6 caractères"
+                    style="width:100%;padding:12px 14px;border:2px solid #e8e8e8;border-radius:10px;font-size:14px;font-family:inherit;">
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="font-size:13px;font-weight:600;color:#555;display:block;margin-bottom:6px;">Confirmer nouveau mot de passe</label>
+                <input type="password" id="pwdConfirm" placeholder="Répéter le mot de passe"
+                    style="width:100%;padding:12px 14px;border:2px solid #e8e8e8;border-radius:10px;font-size:14px;font-family:inherit;">
+            </div>
+            <div id="pwdMessage" style="font-size:13px;margin-bottom:14px;min-height:20px;"></div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="closePwdModal()" style="flex:1;padding:12px;border:2px solid #e8e8e8;border-radius:10px;background:white;font-size:14px;cursor:pointer;font-family:inherit;">Annuler</button>
+                <button onclick="changePassword()" style="flex:2;padding:12px;background:linear-gradient(135deg,#d35400,#e67e22);color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">Changer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="header">
         <div class="header-content">
             <h1><i class="fas fa-car"></i> Transfer Marrakech<span class="live-dot" title="Mise à jour automatique"></span></h1>
             <div class="header-actions">
+                <span id="roleTag" style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:rgba(255,255,255,0.2);color:white;text-transform:uppercase;letter-spacing:0.5px;"></span>
+                <button class="btn-icon" title="Changer mot de passe" onclick="openPwdModal()">
+                    <i class="fas fa-key"></i>
+                </button>
                 <button class="btn-icon" onclick="refreshData()">
                     <i class="fas fa-sync-alt"></i>
                 </button>
@@ -889,6 +920,92 @@
             localStorage.removeItem('user');
             window.location.href = '/login.html';
         }
+
+        // ===== RÔLE & RESTRICTIONS =====
+        (function applyRoleRestrictions() {
+            const userStr = localStorage.getItem('user');
+            if (!userStr) return;
+            const user = JSON.parse(userStr);
+            const role = user.role || 'operator';
+
+            // Badge rôle dans le header
+            const roleLabels = { admin: '👑 Admin', directeur: '🏢 Directeur', operator: '👤 Opérateur' };
+            const tag = document.getElementById('roleTag');
+            if (tag) tag.textContent = roleLabels[role] || role;
+
+            // Masquer l'export CSV pour les non-admins
+            if (role !== 'admin') {
+                const exportSection = document.querySelector('.export-section');
+                if (exportSection) exportSection.style.display = 'none';
+            }
+
+            // Masquer la création/suppression chauffeur et transfert pour directeur
+            if (role === 'directeur') {
+                // Masquer boutons d'action sensibles (ajout, suppression)
+                document.querySelectorAll('.btn-add, .btn-delete, [onclick*="showAddDriver"], [onclick*="deleteDriver"]').forEach(el => el.style.display = 'none');
+            }
+        })();
+
+        // ===== CHANGEMENT MOT DE PASSE =====
+        function openPwdModal() {
+            document.getElementById('pwdCurrent').value = '';
+            document.getElementById('pwdNew').value = '';
+            document.getElementById('pwdConfirm').value = '';
+            document.getElementById('pwdMessage').textContent = '';
+            document.getElementById('pwdModal').style.display = 'flex';
+        }
+
+        function closePwdModal() {
+            document.getElementById('pwdModal').style.display = 'none';
+        }
+
+        async function changePassword() {
+            const current = document.getElementById('pwdCurrent').value;
+            const newPwd = document.getElementById('pwdNew').value;
+            const confirm = document.getElementById('pwdConfirm').value;
+            const msgEl = document.getElementById('pwdMessage');
+
+            if (!current || !newPwd || !confirm) {
+                msgEl.style.color = '#e74c3c';
+                msgEl.textContent = '⚠️ Tous les champs sont obligatoires.';
+                return;
+            }
+            if (newPwd.length < 6) {
+                msgEl.style.color = '#e74c3c';
+                msgEl.textContent = '⚠️ Mot de passe trop court (min 6 caractères).';
+                return;
+            }
+            if (newPwd !== confirm) {
+                msgEl.style.color = '#e74c3c';
+                msgEl.textContent = '⚠️ Les mots de passe ne correspondent pas.';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/auth/change-password', {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currentPassword: current, newPassword: newPwd })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    msgEl.style.color = '#27ae60';
+                    msgEl.textContent = '✅ Mot de passe modifié avec succès !';
+                    setTimeout(closePwdModal, 1500);
+                } else {
+                    msgEl.style.color = '#e74c3c';
+                    msgEl.textContent = '❌ ' + data.error;
+                }
+            } catch(e) {
+                msgEl.style.color = '#e74c3c';
+                msgEl.textContent = '❌ Erreur réseau.';
+            }
+        }
+
+        // Fermer modal en cliquant en dehors
+        document.getElementById('pwdModal').addEventListener('click', function(e) {
+            if (e.target === this) closePwdModal();
+        });
     </script>
 </body>
 </html>
