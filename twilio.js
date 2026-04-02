@@ -5,12 +5,25 @@ class TwilioService {
     this.client = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
     this.fromNumber = process.env.TWILIO_PHONE;
     this.fromWhatsApp = process.env.TWILIO_WHATSAPP || 'whatsapp:+14155238886';
-    
-    // Numéros des responsables pour les alertes
-    this.alertNumbers = [
-      'whatsapp:+212661948925',  // Ami
-      'whatsapp:+212616646122'   // Collègue
-    ];
+
+    // Numéros managers — configurable via MANAGER_WHATSAPP (virgule-séparé)
+    // Exemple Railway env : MANAGER_WHATSAPP=+212612345678,+212698765432
+    // Fallback : numéros de test (à remplacer en production)
+    const envNumbers = process.env.MANAGER_WHATSAPP;
+    if (envNumbers && envNumbers.trim()) {
+      this.managerNumbers = envNumbers
+        .split(',')
+        .map(n => n.trim())
+        .filter(n => n.length > 5)
+        .map(n => n.startsWith('whatsapp:') ? n : `whatsapp:${n}`);
+    } else {
+      // Numéros de test — remplacer via variable d'environnement MANAGER_WHATSAPP
+      this.managerNumbers = [
+        'whatsapp:+212661948925',
+        'whatsapp:+212616646122'
+      ];
+    }
+    console.log(`📱 Managers WhatsApp configurés: ${this.managerNumbers.length} numéro(s)`);
   }
 
   // Envoyer un message WhatsApp
@@ -52,29 +65,32 @@ class TwilioService {
     }
   }
 
-  // Envoyer une alerte aux responsables
-  async sendAlert(transfer, customMessage) {
-    const message = customMessage || 
-      `🚨 ALERTE TRANSFERT\n\n` +
-      `Le chauffeur ${transfer.driverName} n'a pas confirmé le transfert.\n\n` +
-      `📅 Date/Heure: ${transfer.pickupDateTime}\n` +
-      `👤 Client: ${transfer.clientName}\n` +
-      `📍 Départ: ${transfer.pickupLocation}\n` +
-      `🏁 Destination: ${transfer.destination}\n\n` +
-      `⚠️ Intervention immédiate requise!`;
-
-    for (const number of this.alertNumbers) {
+  // Envoyer un message WhatsApp aux managers (alertes opérationnelles)
+  async sendManagerAlert(message) {
+    for (const number of this.managerNumbers) {
       try {
         await this.client.messages.create({
           from: this.fromWhatsApp,
           to: number,
           body: message
         });
-        console.log(`🚨 Alerte envoyée à ${number}`);
-      } catch (error) {
-        console.error(`❌ Erreur alerte à ${number}:`, error.message);
+        console.log(`📣 Alerte manager → ${number}`);
+      } catch (err) {
+        console.error(`❌ Alerte manager ${number}:`, err.message);
       }
     }
+  }
+
+  // Compatibilité ascendante (ancienne signature)
+  async sendAlert(transfer, customMessage) {
+    const message = customMessage ||
+      `🚨 ALERTE TRANSFERT\n\n` +
+      `Chauffeur ${transfer.driverName} n'a pas confirmé.\n` +
+      `📅 ${transfer.pickupDateTime}\n` +
+      `👤 ${transfer.clientName}\n` +
+      `📍 ${transfer.pickupLocation} → ${transfer.destination}\n\n` +
+      `⚠️ Intervention immédiate requise!`;
+    return this.sendManagerAlert(message);
   }
 
   // Envoyer SMS (fallback si WhatsApp ne marche pas)
