@@ -877,23 +877,27 @@ app.post('/webhook/voice', async (req, res) => {
     fr: `
       <Response>
         <Say voice="woman" language="fr-FR">
-          Bonjour, c'est le système de transfert. Vous avez une course assignée dans 2 heures.
-          Appuyez sur 1 pour confirmer que vous partez, ou sur 2 si vous avez un problème.
+          Bonjour, c'est le back-office Transfer Marrakech.
+          Vous avez une course de nuit dans une heure trente.
+          Appuyez sur 1 pour confirmer votre départ, ou sur 2 si vous avez un problème.
         </Say>
-        <Gather numDigits="1" action="/webhook/voice/response" method="POST">
-          <Say voice="woman" language="fr-FR">Appuyez sur 1 pour confirmer.</Say>
+        <Gather numDigits="1" action="/webhook/voice/response" method="POST" timeout="10">
+          <Say voice="woman" language="fr-FR">Appuyez sur 1 pour confirmer, ou 2 pour signaler un problème.</Say>
         </Gather>
+        <Say voice="woman" language="fr-FR">Nous n'avons pas reçu de réponse. Veuillez consulter votre WhatsApp.</Say>
       </Response>
     `,
     ar: `
       <Response>
         <Say voice="woman" language="ar-SA">
-          مرحباً، هذا نظام النقل. لديك رحلة مجدولة خلال ساعتين.
+          مرحباً، هذا مكتب ترانسفير مراكش.
+          لديك رحلة ليلية خلال ساعة ونصف.
           اضغط 1 للتأكيد أنك ستنطلق، أو 2 إذا كان لديك مشكلة.
         </Say>
-        <Gather numDigits="1" action="/webhook/voice/response" method="POST">
-          <Say voice="woman" language="ar-SA">اضغط 1 للتأكيد.</Say>
+        <Gather numDigits="1" action="/webhook/voice/response" method="POST" timeout="10">
+          <Say voice="woman" language="ar-SA">اضغط 1 للتأكيد، أو 2 لإبلاغ عن مشكلة.</Say>
         </Gather>
+        <Say voice="woman" language="ar-SA">لم نتلق ردك. يرجى مراجعة واتساب.</Say>
       </Response>
     `
   };
