@@ -47,6 +47,11 @@ class Database {
       if (err) console.log('Migration clientRating:', err.message);
     });
 
+    // Migration: Add goAlertSent column (alerte manager si transfert en cours >2h)
+    this.db.run(`ALTER TABLE transfers ADD COLUMN goAlertSent INTEGER DEFAULT 0`, (err) => {
+      if (err) console.log('Migration goAlertSent:', err.message);
+    });
+
     // Migration: Add carName column if not exists (for existing databases)
     this.db.run(`ALTER TABLE drivers ADD COLUMN carName TEXT`, (err) => {
       if (err) console.log('Migration carName:', err.message);
@@ -588,130 +593,86 @@ class Database {
   }
 
   // ========== SCHEDULER ==========
-  getPendingTransfersNeedingCall() {
-    const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
-    const twoHoursAgo = new Date(Date.now() + 2 * 60 * 60 * 1000 - 5 * 60 * 1000).toISOString();
-    
+
+  // Transferts actifs dont le chauffeur n'a pas encore reçu son rappel T-1h30
+  // Fenêtre : pickupDateTime entre now+85min et now+95min
+  getTransfersNeedingDriverReminder() {
+    const t85 = new Date(Date.now() + 85 * 60 * 1000).toISOString();
+    const t95 = new Date(Date.now() + 95 * 60 * 1000).toISOString();
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT * FROM transfers 
-         WHERE status IN ('pending', 'assigned') 
-         AND callReminderSent = 0
+        `SELECT * FROM transfers
+         WHERE status NOT IN ('completed', 'cancelled', 'in_progress')
+         AND whatsappReminderSent = 0
+         AND driverPhone IS NOT NULL AND driverPhone != ''
+         AND pickupDateTime >= ?
+         AND pickupDateTime <= ?`,
+        [t85, t95],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
+      );
+    });
+  }
+
+  // Transferts non confirmés/démarrés avec moins d'1h avant le départ
+  // → alerte manager (envoyée une seule fois via alertSent)
+  getTransfersNeedingManagerAlert() {
+    const t60 = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const now  = new Date().toISOString();
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT * FROM transfers
+         WHERE status NOT IN ('in_progress', 'confirmed', 'confirmed_by_call', 'completed', 'cancelled')
+         AND alertSent = 0
+         AND driverPhone IS NOT NULL AND driverPhone != ''
          AND pickupDateTime <= ?
          AND pickupDateTime >= ?`,
-        [twoHoursFromNow, twoHoursAgo],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
+        [t60, now],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
       );
     });
   }
 
-  getPendingTransfersNeedingWhatsApp() {
-    const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-    
+  // Transferts en cours depuis plus de 2 heures → alerte manager
+  getInProgressTransfersNeedingGoAlert() {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT * FROM transfers 
-         WHERE status IN ('pending', 'assigned') 
-         AND callReminderSent = 1
-         AND whatsappReminderSent = 0
-         AND pickupDateTime <= ?`,
-        [oneHourFromNow],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
+        `SELECT * FROM transfers
+         WHERE status = 'in_progress'
+         AND goAlertSent = 0
+         AND datetime(updatedAt) <= datetime(?)`,
+        [twoHoursAgo],
+        (err, rows) => { if (err) reject(err); else resolve(rows); }
       );
     });
   }
 
-  getPendingTransfersNeedingAlert() {
-    const thirtyMinFromNow = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-    
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        `SELECT * FROM transfers 
-         WHERE status IN ('pending', 'assigned') 
-         AND whatsappReminderSent = 1
-         AND alertSent = 0
-         AND pickupDateTime <= ?`,
-        [thirtyMinFromNow],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
-      );
-    });
-  }
-
-  getTransfersNeedingClientNotification() {
-    const twentyFourHoursFromNow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    
-    return new Promise((resolve, reject) => {
-      this.db.all(
-        `SELECT * FROM transfers 
-         WHERE clientPhone IS NOT NULL 
-         AND clientNotified = 0
-         AND pickupDateTime <= ?`,
-        [twentyFourHoursFromNow],
-        (err, rows) => {
-          if (err) reject(err);
-          else resolve(rows);
-        }
-      );
-    });
-  }
-
-  markCallReminderSent(id) {
+  // Marquer rappel chauffeur envoyé (utilise whatsappReminderSent)
+  markDriverReminderSent(id) {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `UPDATE transfers SET callReminderSent = 1 WHERE id = ?`,
-        [id],
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        }
+        `UPDATE transfers SET whatsappReminderSent = 1 WHERE id = ?`, [id],
+        (err) => { if (err) reject(err); else resolve(); }
       );
     });
   }
 
-  markWhatsAppReminderSent(id) {
-    return new Promise((resolve, reject) => {
-      this.db.run(
-        `UPDATE transfers SET whatsappReminderSent = 1 WHERE id = ?`,
-        [id],
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        }
-      );
-    });
-  }
-
+  // Marquer alerte manager T-1h envoyée
   markAlertSent(id) {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `UPDATE transfers SET alertSent = 1 WHERE id = ?`,
-        [id],
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        }
+        `UPDATE transfers SET alertSent = 1 WHERE id = ?`, [id],
+        (err) => { if (err) reject(err); else resolve(); }
       );
     });
   }
 
-  markClientNotified(id) {
+  // Marquer alerte GO+2h envoyée
+  markGoAlertSent(id) {
     return new Promise((resolve, reject) => {
       this.db.run(
-        `UPDATE transfers SET clientNotified = 1 WHERE id = ?`,
-        [id],
-        (err) => {
-          if (err) reject(err);
-          else resolve();
-        }
+        `UPDATE transfers SET goAlertSent = 1 WHERE id = ?`, [id],
+        (err) => { if (err) reject(err); else resolve(); }
       );
     });
   }
