@@ -454,6 +454,41 @@ class Database {
     });
   }
 
+  // Planning pour une date précise (format YYYY-MM-DD)
+  getTransfersByDriverPhoneForDate(phone, dateStr) {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT * FROM transfers
+         WHERE driverPhone = ?
+         AND date(pickupDateTime) = date(?)
+         AND status != 'cancelled'
+         ORDER BY pickupDateTime ASC`,
+        [phone, dateStr],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+  }
+
+  // Tous les transferts actifs du chauffeur (pour GO/FIN multi)
+  getActiveTransfersByDriverPhone(phone) {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT * FROM transfers
+         WHERE driverPhone = ?
+         AND status IN ('pending', 'assigned', 'confirmed', 'confirmed_by_call', 'in_progress')
+         ORDER BY pickupDateTime ASC`,
+        [phone],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+  }
+
   getCompletedTransferByClientPhone(phone) {
     return new Promise((resolve, reject) => {
       this.db.get(
