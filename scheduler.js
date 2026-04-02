@@ -16,6 +16,22 @@ function fmtTime(iso) {
   } catch(e) { return iso || '?'; }
 }
 
+// Transfert de nuit = heure de prise en charge entre 22h00 et 05h59 (heure Maroc)
+// pickupDateTime est stocké en heure locale Maroc (UTC+1)
+function isNightTransfer(pickupDateTime) {
+  try {
+    // Extraire l'heure directement depuis la chaîne ISO (ex: "2026-04-02T23:30:00")
+    const match = pickupDateTime.match(/T(\d{2}):/);
+    if (match) {
+      const hour = parseInt(match[1], 10);
+      return hour >= 22 || hour < 6;
+    }
+    // Fallback : utiliser l'objet Date
+    const hour = new Date(pickupDateTime).getHours();
+    return hour >= 22 || hour < 6;
+  } catch(e) { return false; }
+}
+
 class Scheduler {
   constructor(db, twilio) {
     this.db = db;
@@ -58,7 +74,7 @@ class Scheduler {
     }
   }
 
-  // ─── ÉTAPE 1 : Rappel chauffeur T-1h30 ────────────────────────────────────
+  // ─── ÉTAPE 1 : Rappel chauffeur T-1h30 (+ appel vocal si nuit) ───────────
   async handleDriverReminders() {
     const transfers = await this.db.getTransfersNeedingDriverReminder();
     if (transfers.length > 0) {
@@ -69,7 +85,9 @@ class Scheduler {
       try {
         const lang = t.language || 'fr';
         const heure = fmtTime(t.pickupDateTime);
+        const nuit = isNightTransfer(t.pickupDateTime);
 
+        // ── WhatsApp (toujours envoyé) ──
         const messages = {
           fr: `⏰ *RAPPEL TRANSFERT — dans 1h30*\n\n` +
               `Transfert #${t.id}\n` +
@@ -89,8 +107,20 @@ class Scheduler {
         };
 
         await this.twilio.sendWhatsApp(t.driverPhone, messages[lang] || messages.fr);
+        console.log(`✅ Rappel WhatsApp T-1h30 → ${t.driverName} (transfert #${t.id})`);
+
+        // ── Appel vocal si transfert de nuit (22h00–05h59) ──
+        if (nuit) {
+          try {
+            await this.twilio.makeCall(t.driverPhone, t.id);
+            console.log(`📞 Appel vocal nuit → ${t.driverName} (transfert #${t.id} à ${heure})`);
+          } catch (callErr) {
+            // Non-bloquant : l'appel échoue mais le WhatsApp est déjà envoyé
+            console.error(`❌ Appel vocal nuit #${t.id}:`, callErr.message);
+          }
+        }
+
         await this.db.markDriverReminderSent(t.id);
-        console.log(`✅ Rappel T-1h30 → chauffeur #${t.id} (${t.driverName})`);
       } catch (err) {
         console.error(`❌ Rappel T-1h30 transfert #${t.id}:`, err.message);
       }
