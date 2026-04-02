@@ -1063,6 +1063,8 @@
             };
 
             const geocodedMarkers = [];
+            // Compteur de collisions par coordonnée — pour décaler les marqueurs superposés
+            const coordCount = {};
 
             for (const t of activeTransfers) {
                 const pickupLocation = t.pickupLocation || t.pickup_location;
@@ -1079,12 +1081,28 @@
                 const pickupCoords = await geocodeLocation(pickupLocation);
                 if (!pickupCoords) continue;
 
+                // ── Décalage si plusieurs transferts au même endroit ──
+                const coordKey = pickupCoords[0].toFixed(4) + ',' + pickupCoords[1].toFixed(4);
+                const collisionIdx = coordCount[coordKey] || 0;
+                coordCount[coordKey] = collisionIdx + 1;
+
+                let displayCoords = pickupCoords;
+                if (collisionIdx > 0) {
+                    // Disposer en cercle : 6 positions à 60° d'écart, rayon ~80m
+                    const angle = (collisionIdx - 1) * (Math.PI / 3);
+                    const offset = 0.0007;
+                    displayCoords = [
+                        pickupCoords[0] + Math.sin(angle) * offset,
+                        pickupCoords[1] + Math.cos(angle) * offset
+                    ];
+                }
+
                 const markerHtml = (t.alertSent || t.alert_sent)
                     ? `<div style="background:${color};border:3px solid white;border-radius:50%;width:22px;height:22px;box-shadow:0 2px 8px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:11px;color:white;font-weight:700;">!</div>`
                     : `<div style="background:${color};border:3px solid white;border-radius:50%;width:20px;height:20px;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>`;
 
                 const icon = L.divIcon({ className: '', html: markerHtml, iconSize: [22, 22], iconAnchor: [11, 11] });
-                const marker = L.marker(pickupCoords, { icon }).addTo(map);
+                const marker = L.marker(displayCoords, { icon }).addTo(map);
 
                 marker.bindPopup(`
                     <div style="min-width:180px;font-family:Poppins,sans-serif;font-size:13px;">
