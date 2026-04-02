@@ -151,6 +151,32 @@ class Database {
     });
   }
 
+  async getUserById(id) {
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT * FROM users WHERE id = ?`,
+        [id],
+        (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
+    });
+  }
+
+  async updateUserPassword(id, hashedPassword) {
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `UPDATE users SET password = ? WHERE id = ?`,
+        [hashedPassword, id],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  }
+
   async validatePassword(user, password) {
     return bcrypt.compare(password, user.password);
   }
