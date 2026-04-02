@@ -483,7 +483,7 @@ class Database {
   getTransferByDriverPhone(phone) {
     return new Promise((resolve, reject) => {
       this.db.get(
-        `SELECT * FROM transfers WHERE driverPhone = ? AND status IN ('pending', 'assigned') ORDER BY pickupDateTime ASC LIMIT 1`,
+        `SELECT * FROM transfers WHERE driverPhone = ? AND status IN ('pending', 'assigned', 'confirmed', 'confirmed_by_call', 'in_progress') ORDER BY pickupDateTime ASC LIMIT 1`,
         [phone],
         (err, row) => {
           if (err) reject(err);
