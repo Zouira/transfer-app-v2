@@ -799,7 +799,33 @@ app.post('/webhook/whatsapp', validateTwilioSignature, async (req, res) => {
     const bodyLower = (Body || '').toLowerCase().trim();
     const bodyClean = (Body || '').trim();
 
-    // --- Messages du CHAUFFEUR ---
+    // --- PLANNING : répond toujours, même sans transfert actif ---
+    const planningKeywords = ['planning', 'agenda', 'programme', 'courses', 'mes courses', 'planning?', 'agenda?'];
+    if (planningKeywords.includes(bodyLower) || bodyLower.startsWith('planning')) {
+      const todayTransfers = await db.getTodayTransfersByDriverPhone(phone);
+      let reply = '';
+      if (!todayTransfers || todayTransfers.length === 0) {
+        reply = `📅 Aucune course prévue pour aujourd'hui.\n\nBonne journée ! 😊`;
+      } else {
+        const dateStr = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+        reply = `📅 Votre planning du ${dateStr} :\n\n`;
+        todayTransfers.forEach((t, i) => {
+          const time = new Date(t.pickupDateTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          const statusEmoji = { pending: '⏳', assigned: '📋', confirmed: '✅', confirmed_by_call: '📞', in_progress: '🚗', completed: '🏁', cancelled: '❌' }[t.status] || '⏳';
+          reply += `${i + 1}. ${statusEmoji} ${time}\n`;
+          reply += `   👤 ${t.clientName}\n`;
+          reply += `   📍 ${t.pickupLocation}\n`;
+          reply += `   🏁 ${t.destination}\n`;
+          if (i < todayTransfers.length - 1) reply += '\n';
+        });
+        reply += `\n\nTotal : ${todayTransfers.length} course(s) aujourd'hui.`;
+      }
+      await twilio.sendWhatsApp(phone, reply);
+      res.send('<Response></Response>');
+      return;
+    }
+
+    // --- Messages du CHAUFFEUR (GO / FIN / OK) ---
     const driverTransfer = await db.getTransferByDriverPhone(phone);
     if (driverTransfer) {
       const lang = driverTransfer.language || 'fr';
@@ -813,28 +839,6 @@ app.post('/webhook/whatsapp', validateTwilioSignature, async (req, res) => {
         // Mission démarrée
         await db.updateTransferStatus(driverTransfer.id, 'in_progress');
         await twilio.sendWhatsApp(phone, lang === 'ar' ? '🚗 تم تسجيل انطلاقك. بالتوفيق !' : '🚗 Mission démarrée. Bon voyage !');
-
-      } else if (['planning', 'agenda', 'programme', 'courses', 'mes courses', 'planning?', 'agenda?'].includes(bodyLower) || bodyLower.startsWith('planning')) {
-        // Récap du planning du jour
-        const todayTransfers = await db.getTodayTransfersByDriverPhone(phone);
-        let reply = '';
-        if (!todayTransfers || todayTransfers.length === 0) {
-          reply = `📅 Aucune course prévue pour aujourd'hui.\n\nBonne journée ! 😊`;
-        } else {
-          const dateStr = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-          reply = `📅 Votre planning du ${dateStr} :\n\n`;
-          todayTransfers.forEach((t, i) => {
-            const time = new Date(t.pickupDateTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-            const statusEmoji = { pending: '⏳', confirmed: '✅', confirmed_by_call: '📞', in_progress: '🚗', completed: '🏁', cancelled: '❌' }[t.status] || '⏳';
-            reply += `${i + 1}. ${statusEmoji} ${time}\n`;
-            reply += `   👤 ${t.clientName}\n`;
-            reply += `   📍 ${t.pickupLocation}\n`;
-            reply += `   🏁 ${t.destination}\n`;
-            if (i < todayTransfers.length - 1) reply += '\n';
-          });
-          reply += `\n\nTotal : ${todayTransfers.length} course(s) aujourd'hui.`;
-        }
-        await twilio.sendWhatsApp(phone, reply);
 
       } else if (bodyLower === 'fin' || bodyLower === 'arrivé' || bodyLower === 'arrive' || bodyLower === 'terminé' || bodyLower === 'termine') {
         // Mission terminée
