@@ -1,5 +1,21 @@
 const cron = require('node-cron');
 
+// Formate une date ISO en lisible FR : "02 avr. à 14h30"
+function fmtDate(iso) {
+  try {
+    return new Date(iso).toLocaleString('fr-FR', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+  } catch(e) { return iso || '?'; }
+}
+
+// Formate uniquement l'heure : "14h30"
+function fmtTime(iso) {
+  try {
+    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  } catch(e) { return iso || '?'; }
+}
+
 class Scheduler {
   constructor(db, twilio) {
     this.db = db;
@@ -8,146 +24,128 @@ class Scheduler {
 
   start() {
     console.log('⏰ Scheduler démarré');
-    
-    // Vérifier toutes les minutes
+
+    // Vérification toutes les minutes
     cron.schedule('* * * * *', async () => {
-      console.log('🔍 Vérification des transferts...', new Date().toISOString());
       await this.checkTransfers();
     });
 
-    // Backup quotidien à 3h du matin
+    // Backup quotidien à 3h
     cron.schedule('0 3 * * *', async () => {
       console.log('💾 Backup quotidien...');
       try {
         const backupPath = await this.db.backup();
         console.log('✅ Backup créé:', backupPath);
-      } catch (error) {
-        console.error('❌ Erreur backup:', error);
+      } catch (err) {
+        console.error('❌ Erreur backup:', err.message);
       }
     });
   }
 
   async checkTransfers() {
     try {
-      // 1. Transferts à appeler (T-2h)
-      await this.handleCallReminders();
-      
-      // 2. Transferts à relancer par WhatsApp (T-1h si pas de réponse)
-      await this.handleWhatsAppReminders();
-      
-      // 3. Transferts à alerter (T-30min si silence)
-      await this.handleAlerts();
+      // 1. Rappel WhatsApp au chauffeur à T-1h30
+      await this.handleDriverReminders();
 
-      // 4. Notifier les clients (T-24h)
-      await this.handleClientNotifications();
-      
+      // 2. Alerte manager si pas de GO à T-1h
+      await this.handleManagerAlerts();
+
+      // 3. Alerte manager si toujours en cours après GO+2h
+      await this.handleGoAlerts();
+
     } catch (error) {
-      console.error('Erreur scheduler:', error);
+      console.error('Erreur scheduler:', error.message);
     }
   }
 
-  async handleCallReminders() {
-    const transfers = await this.db.getPendingTransfersNeedingCall();
-    console.log(`📞 ${transfers.length} transferts à appeler (T-2h)`);
-    
-    for (const transfer of transfers) {
-      try {
-        await this.twilio.makeCall(transfer.driverPhone, transfer.id);
-        await this.db.markCallReminderSent(transfer.id);
-        console.log(`✅ Appel T-2h envoyé pour transfert #${transfer.id}`);
-      } catch (error) {
-        console.error(`❌ Erreur appel pour transfert #${transfer.id}:`, error.message);
-      }
+  // ─── ÉTAPE 1 : Rappel chauffeur T-1h30 ────────────────────────────────────
+  async handleDriverReminders() {
+    const transfers = await this.db.getTransfersNeedingDriverReminder();
+    if (transfers.length > 0) {
+      console.log(`⏰ ${transfers.length} rappel(s) chauffeur T-1h30`);
     }
-  }
 
-  async handleWhatsAppReminders() {
-    const transfers = await this.db.getPendingTransfersNeedingWhatsApp();
-    console.log(`💬 ${transfers.length} transferts à relancer par WhatsApp (T-1h)`);
-    
-    for (const transfer of transfers) {
+    for (const t of transfers) {
       try {
-        const lang = transfer.language || 'fr';
-        
+        const lang = t.language || 'fr';
+        const heure = fmtTime(t.pickupDateTime);
+
         const messages = {
-          fr: `⏰ RAPPEL TRANSFERT\n\n` +
-              `Vous n'avez pas confirmé votre transfert de ${transfer.pickupDateTime}.\n\n` +
-              `👤 Client: ${transfer.clientName}\n` +
-              `📍 Départ: ${transfer.pickupLocation}\n\n` +
-              `Répondez OK immédiatement ou appelez le back-office.`,
-          ar: `⏰ تذكير بالنقل\n\n` +
-              `لم تقم بتأكيد نقلك المقرر في ${transfer.pickupDateTime}.\n\n` +
-              `👤 العميل: ${transfer.clientName}\n` +
-              `📍 الانطلاق: ${transfer.pickupLocation}\n\n` +
-              `الرد بـ OK فوراً أو الاتصال بالمكتب.`
+          fr: `⏰ *RAPPEL TRANSFERT — dans 1h30*\n\n` +
+              `Transfert #${t.id}\n` +
+              `🕐 Heure prévue : *${heure}*\n` +
+              `👤 Client : ${t.clientName}\n` +
+              `📍 Départ : ${t.pickupLocation}\n` +
+              `🏁 Destination : ${t.destination}\n\n` +
+              `Confirmez votre disponibilité en répondant *GO*.`,
+
+          ar: `⏰ *تذكير النقل — بعد 1h30*\n\n` +
+              `النقل #${t.id}\n` +
+              `🕐 الوقت المحدد: *${heure}*\n` +
+              `👤 العميل: ${t.clientName}\n` +
+              `📍 الانطلاق: ${t.pickupLocation}\n` +
+              `🏁 الوجهة: ${t.destination}\n\n` +
+              `أكد توفرك بالرد بـ *GO*.`
         };
-        
-        await this.twilio.sendWhatsApp(transfer.driverPhone, messages[lang]);
-        await this.db.markWhatsAppReminderSent(transfer.id);
-        console.log(`✅ WhatsApp T-1h envoyé pour transfert #${transfer.id}`);
-      } catch (error) {
-        console.error(`❌ Erreur WhatsApp pour transfert #${transfer.id}:`, error.message);
+
+        await this.twilio.sendWhatsApp(t.driverPhone, messages[lang] || messages.fr);
+        await this.db.markDriverReminderSent(t.id);
+        console.log(`✅ Rappel T-1h30 → chauffeur #${t.id} (${t.driverName})`);
+      } catch (err) {
+        console.error(`❌ Rappel T-1h30 transfert #${t.id}:`, err.message);
       }
     }
   }
 
-  async handleAlerts() {
-    const transfers = await this.db.getPendingTransfersNeedingAlert();
-    console.log(`🚨 ${transfers.length} transferts à alerter (T-30min)`);
-    
-    for (const transfer of transfers) {
+  // ─── ÉTAPE 2 : Alerte manager T-1h (pas de GO) ────────────────────────────
+  async handleManagerAlerts() {
+    const transfers = await this.db.getTransfersNeedingManagerAlert();
+    if (transfers.length > 0) {
+      console.log(`🔴 ${transfers.length} alerte(s) manager T-1h`);
+    }
+
+    for (const t of transfers) {
       try {
-        const lang = transfer.language || 'fr';
-        
-        const messages = {
-          fr: `🚨 ALERTE TRANSFERT\n\n` +
-              `Le chauffeur ${transfer.driverName} n'a pas confirmé le transfert.\n\n` +
-              `📅 Date/Heure: ${transfer.pickupDateTime}\n` +
-              `👤 Client: ${transfer.clientName}\n` +
-              `📍 Départ: ${transfer.pickupLocation}\n` +
-              `🏁 Destination: ${transfer.destination}\n\n` +
-              `⚠️ Intervention immédiate requise!`,
-          ar: `🚨 تنبيه نقل\n\n` +
-              `لم يقم السائق ${transfer.driverName} بتأكيد النقل.\n\n` +
-              `📅 التاريخ/الوقت: ${transfer.pickupDateTime}\n` +
-              `👤 العميل: ${transfer.clientName}\n` +
-              `📍 الانطلاق: ${transfer.pickupLocation}\n` +
-              `🏁 الوجهة: ${transfer.destination}\n\n` +
-              `⚠️ التدخل الفوري مطلوب!`
-        };
-        
-        await this.twilio.sendAlert(transfer, messages[lang]);
-        await this.db.markAlertSent(transfer.id);
-        console.log(`🚨 Alerte envoyée pour transfert #${transfer.id}`);
-      } catch (error) {
-        console.error(`❌ Erreur alerte pour transfert #${transfer.id}:`, error.message);
+        const message =
+          `🔴 *ALERTE — Chauffeur non confirmé*\n\n` +
+          `Transfert *#${t.id}* dans moins d'1 heure !\n` +
+          `📅 ${fmtDate(t.pickupDateTime)}\n` +
+          `👤 Client : ${t.clientName}\n` +
+          `🚖 Chauffeur : ${t.driverName} (${t.driverPhone})\n` +
+          `📍 ${t.pickupLocation} → ${t.destination}\n\n` +
+          `⚡ Contactez le chauffeur immédiatement.`;
+
+        await this.twilio.sendManagerAlert(message);
+        await this.db.markAlertSent(t.id);
+        console.log(`🔴 Alerte manager → transfert #${t.id} (${t.clientName})`);
+      } catch (err) {
+        console.error(`❌ Alerte manager transfert #${t.id}:`, err.message);
       }
     }
   }
 
-  async handleClientNotifications() {
-    const transfers = await this.db.getTransfersNeedingClientNotification();
-    console.log(`📱 ${transfers.length} clients à notifier (T-24h)`);
-    
-    for (const transfer of transfers) {
-      if (!transfer.clientPhone) continue;
-      
+  // ─── ÉTAPE 3 : Alerte manager GO+2h (toujours en cours) ───────────────────
+  async handleGoAlerts() {
+    const transfers = await this.db.getInProgressTransfersNeedingGoAlert();
+    if (transfers.length > 0) {
+      console.log(`⚠️  ${transfers.length} alerte(s) GO+2h`);
+    }
+
+    for (const t of transfers) {
       try {
-        const trackingUrl = `${process.env.BASE_URL}/track.html?token=${transfer.trackingToken}`;
-        
-        const message = `✅ Confirmation de votre transfert\n\n` +
-                       `👤 Client: ${transfer.clientName}\n` +
-                       `🕐 Date/Heure: ${transfer.pickupDateTime}\n` +
-                       `📍 Départ: ${transfer.pickupLocation}\n` +
-                       `🏁 Destination: ${transfer.destination}\n\n` +
-                       `🚗 Chauffeur: ${transfer.driverName}\n\n` +
-                       `Suivez votre transfert: ${trackingUrl}`;
-        
-        await this.twilio.sendWhatsApp(transfer.clientPhone, message);
-        await this.db.markClientNotified(transfer.id);
-        console.log(`✅ Client notifié pour transfert #${transfer.id}`);
-      } catch (error) {
-        console.error(`❌ Erreur notification client #${transfer.id}:`, error.message);
+        const message =
+          `⚠️ *VÉRIFICATION REQUISE*\n\n` +
+          `Transfert *#${t.id}* toujours "En cours" (2h+)\n` +
+          `🚖 Chauffeur : ${t.driverName} (${t.driverPhone})\n` +
+          `👤 Client : ${t.clientName}\n` +
+          `📍 ${t.pickupLocation} → ${t.destination}\n\n` +
+          `Confirmez si la mission est terminée (appuyez FIN dans l'app).`;
+
+        await this.twilio.sendManagerAlert(message);
+        await this.db.markGoAlertSent(t.id);
+        console.log(`⚠️  Alerte GO+2h → transfert #${t.id} (${t.driverName})`);
+      } catch (err) {
+        console.error(`❌ Alerte GO+2h transfert #${t.id}:`, err.message);
       }
     }
   }
