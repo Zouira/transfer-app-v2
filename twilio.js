@@ -2,7 +2,25 @@ const twilio = require('twilio');
 
 class TwilioService {
   constructor() {
-    this.client = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+    // Initialisation résiliente : des identifiants Twilio manquants ou invalides
+    // ne doivent JAMAIS faire planter le serveur web (login, dashboard, suivi client).
+    // En cas d'échec, le service se désactive et les envois sont ignorés proprement.
+    const sid = process.env.TWILIO_SID;
+    const token = process.env.TWILIO_TOKEN;
+    this.enabled = false;
+    this.client = null;
+
+    if (!sid || !token) {
+      console.warn('⚠️  Twilio désactivé : TWILIO_SID / TWILIO_TOKEN manquants. Les notifications WhatsApp/SMS/appels sont inactives.');
+    } else {
+      try {
+        this.client = twilio(sid, token);
+        this.enabled = true;
+      } catch (err) {
+        console.warn(`⚠️  Twilio désactivé : identifiants invalides (${err.message}). Le serveur continue sans notifications.`);
+      }
+    }
+
     this.fromNumber = process.env.TWILIO_PHONE;
     this.fromWhatsApp = process.env.TWILIO_WHATSAPP || 'whatsapp:+14155238886';
 
@@ -28,6 +46,10 @@ class TwilioService {
 
   // Envoyer un message WhatsApp
   async sendWhatsApp(to, message) {
+    if (!this.enabled) {
+      console.warn(`⚠️  WhatsApp ignoré (Twilio désactivé) → ${to}`);
+      return null;
+    }
     try {
       const response = await this.client.messages.create({
         from: this.fromWhatsApp,
@@ -44,6 +66,10 @@ class TwilioService {
 
   // Passer un appel vocal
   async makeCall(to, transferId) {
+    if (!this.enabled) {
+      console.warn(`⚠️  Appel ignoré (Twilio désactivé) → ${to}`);
+      return null;
+    }
     try {
       const baseUrl = process.env.BASE_URL;
       if (!baseUrl) {
@@ -67,6 +93,10 @@ class TwilioService {
 
   // Envoyer un message WhatsApp aux managers (alertes opérationnelles)
   async sendManagerAlert(message) {
+    if (!this.enabled) {
+      console.warn('⚠️  Alerte manager ignorée (Twilio désactivé)');
+      return;
+    }
     for (const number of this.managerNumbers) {
       try {
         await this.client.messages.create({
@@ -95,6 +125,10 @@ class TwilioService {
 
   // Envoyer SMS (fallback si WhatsApp ne marche pas)
   async sendSMS(to, message) {
+    if (!this.enabled) {
+      console.warn(`⚠️  SMS ignoré (Twilio désactivé) → ${to}`);
+      return null;
+    }
     try {
       const response = await this.client.messages.create({
         from: this.fromNumber,
